@@ -1,0 +1,39 @@
+Options -Indexes
+RewriteEngine On
+
+# prevent access
+RewriteRule ^private/(.*)$ /404page.php [NC,END]
+RewriteRule ^database/(.*)$ /404page.php [NC,END]
+RewriteRule ^tmp/(.*)$ /404page.php [NC,END]
+
+# bypass
+RewriteRule ^(.*).css$ /$1.css [NC,END]
+RewriteRule ^(.*).js$ /$1.js [NC,END]
+RewriteRule ^(.*).php$ /$1.php [NC,END]
+RewriteRule ^videos/(.*)$ /videos/$1 [NC,END]
+RewriteRule ^uploads/(.*)$ /uploads/$1 [NC,END]
+RewriteRule ^images/(.*)$ /images/$1 [NC,END]
+
+# root url shall go to index.php
+RewriteRule ^$ /index.php [END]
+
+# user
+RewriteRule ^u/([^/]+)/(followers|following)$ /follow_list.php?id=$1&type=$2 [NC,END]
+RewriteRule ^u/([^/]+)$ /profile.php?id=$1 [NC,END]
+RewriteRule ^u/([^/]+)/(.*)$ /profile.php?id=$1&tab=$2 [NC,END]
+RewriteRule ^user/([^/]+)/(.*)$ profile.php?user=$1&tab=$2 [NC,B,QSA,L]
+RewriteRule ^user/([^/]+)$ profile.php?user=$1 [NC,B,QSA,L]
+
+# posts
+RewriteRule ^post/([^/]+)$ /view_post.php?id=$1 [NC,END]
+
+# add .php
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.*)$ $1.php [NC,END]
+
+# use profile page for non-existent URLs
+RewriteRule ^([^/]*)$ /profile.php?user=$1 [NC,END]
+
+ErrorDocument 404 /404page.php
+

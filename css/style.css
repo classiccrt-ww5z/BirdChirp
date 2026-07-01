@@ -1,0 +1,207 @@
+body {
+    background: #e9ebee;
+    color: #333;
+    font-family: Verdana, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    width: 960px;
+    margin: 0 auto;
+    background: #fff;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+    min-height: 1000px;
+}
+
+.header {
+    background: #3b5998;
+    color: #fff;
+    height: 60px;
+    padding: 0 10px;
+    font-size: 14px;
+    line-height: 60px;
+    overflow: hidden; 
+}
+
+.header .logo {
+    float: left;
+    font-weight: bold;
+    font-size: 20px;
+    color: #fff;
+    margin-right: 20px;
+}
+
+.header .nav-left {
+    float: left;
+}
+
+.header .nav-left a {
+    color: #fff;
+    text-decoration: none;
+    margin-right: 10px;
+}
+
+.header .nav-left a:hover {
+    text-decoration: underline;
+}
+
+.header .nav-right {
+    float: right;
+    position: relative;
+}
+
+.header .nav-right a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.profile-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.profile-dropdown-content {
+    display: none;
+    position: absolute;
+    top: 100%; 
+    right: 0;
+    background: #fff;
+    border: 1px solid #aaa;
+    width: 140px;
+    font-size: 13px;
+    z-index: 1000;
+}
+
+.profile-dropdown-content a {
+    display: block;
+    padding: 5px 10px;
+    color: #333;
+    text-decoration: none;
+    border-bottom: 1px solid #ccc;
+}
+
+.profile-dropdown-content a:last-child {
+    border-bottom: none;
+}
+
+.profile-dropdown-content a:hover {
+    background: #f5f5f5;
+}
+
+.profile-dropdown.show .profile-dropdown-content {
+    display: block;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #ccc;
+    margin: 10px;
+    padding: 10px;
+    font-size: 13px;
+    clear: both;
+}
+
+textarea, input {
+    width: 95%;
+    padding: 5px;
+    border: 1px solid #999;
+    font-size: 12px;
+}
+
+button {
+    background: #4267b2;
+    color: #fff;
+    border: 1px solid #29487d;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+button:hover {
+    background: #365899;
+}
+
+.message {
+    padding: 10px;
+    margin: 10px;
+    border: 1px solid #999;
+    background: #f6f7f9;
+}
+
+.msg-error {
+    background: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.msg-success {
+    background: #dff0d8;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.post {
+    border-top: 1px solid #ccc;
+    padding: 10px;
+    background: #fff;
+}
+
+.post-user {
+    font-weight: bold;
+    color: #3b5998;
+}
+
+.post-time {
+    font-size: 11px;
+    color: #666;
+}
+#main-content {
+    overflow: hidden;
+    margin: 20px 0;
+}
+
+#feed {
+    float: left;
+    width: 65%;
+}
+
+#sidebar {
+    float: right;
+    width: 30%;
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 10px;
+    font-size: 13px;
+}
+
+#sidebar h3 {
+    margin-top: 0;
+    font-size: 14px;
+    color: #3b5998;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 5px;
+}
+
+#sidebar ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+#sidebar li {
+    margin-bottom: 10px;
+    line-height: 22px;
+}
+
+#sidebar li img {
+    vertical-align: middle;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+.card.post {
+    margin-bottom: 15px;
+}

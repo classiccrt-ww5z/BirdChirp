@@ -1,0 +1,48 @@
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# PHP
+*.log
+vendor/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Database config
+private/db.php
+
+# Uploaded content
+images/avatars/*
+images/posts/*
+images/replies/*
+videos/posts/*
+videos/replies/*
+uploads/*
+tmp/*
+
+# Keep gitkeep files
+!images/avatars/.gitkeep
+!images/posts/.gitkeep
+!images/replies/.gitkeep
+!videos/posts/.gitkeep
+!videos/replies/.gitkeep
+!uploads/posts/.gitkeep
+!tmp/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Docker
+docker-data/
+
+# Error logs
+error/*.log
+!error/.gitkeep
