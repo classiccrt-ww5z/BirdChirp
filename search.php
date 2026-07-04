@@ -153,7 +153,7 @@ $trending_tags = array_slice($tags_found, 0, 8);
     #loading-indicator { text-align: center; padding: 20px; display: none; }
 </style>
 
-<div class="content">
+<div class="container">
     <div class="page-header">
         <h1>Search <small>Results for "<?= htmlspecialchars($query) ?>"</small></h1>
     </div>

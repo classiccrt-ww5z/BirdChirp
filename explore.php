@@ -79,7 +79,7 @@ $recommended_users = $userStmt->fetchAll();
 .post-actions img { width: 16px; height: 16px; margin-right: 8px; }
 </style>
 
-<div class="content">
+<div class="container">
     <div class="page-header">
         <h1>Explore <small>Discover what's happening</small></h1>
     </div>

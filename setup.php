@@ -159,9 +159,6 @@ $currentNum = $allSteps[$step] ?? 1;
 <title>BirdChirp - Setup</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/css/bootstrap.css">
-<style>
-.topbar { position: static !important; }
-</style>
 </head>
 <body>
 

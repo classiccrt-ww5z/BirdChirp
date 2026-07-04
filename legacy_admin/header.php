@@ -62,6 +62,9 @@ require_once __DIR__ . '/../header.php';
         <li class="<?php echo $current_file == 'site_settings.php' ? 'active' : ''; ?>">
             <a href="site_settings.php">Site Settings</a>
         </li>
+        <li class="<?php echo $current_file == 'migrate.php' ? 'active' : ''; ?>">
+            <a href="migrate.php">DB Migration</a>
+        </li>
     </ul>
 
     <div style="margin-top:20px;">
@@ -70,7 +73,6 @@ require_once __DIR__ . '/../header.php';
 </div>
 
 <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
-<script src="https://netdna.bootstrapcdn.com/twitter-bootstrap/1.4.0/bootstrap.min.js"></script>
 
 <?php 
 ob_end_flush(); 

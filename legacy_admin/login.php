@@ -83,7 +83,6 @@ Save this — it won't be shown again.
 </div>
 
 <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
-<script src="https://netdna.bootstrapcdn.com/twitter-bootstrap/1.4.0/bootstrap.min.js"></script>
 
 <?php
 ob_end_flush();

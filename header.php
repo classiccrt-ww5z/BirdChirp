@@ -46,7 +46,6 @@ $page_titles = [
     "verify.php"   => "Verify",
     "profile.php"  => "",
     "view_post.php"=> "",
-    "follow_list.php" => "",
     "inbox.php"    => "Notifications",
     "login.php"    => "Login",
     "signup.php"   => "Sign Up"
@@ -71,7 +70,7 @@ $displayName = "";
 
 if(isLoggedIn()){
     $uid = $_SESSION['user_id'];
-    $stmt = $pdo->prepare("SELECT username, display_name, avatar, admin, is_verified, partner FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT username, display_name, avatar, banner, admin, is_verified, partner, custom_css FROM users WHERE id = ?");
     $stmt->execute([$uid]);
     $user = $stmt->fetch();
 
@@ -144,6 +143,10 @@ if(isLoggedIn()){
     <link rel="icon" type="image/x-icon" href="/favicon.png">
     <link rel="stylesheet" href="/css/bootstrap.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+
+    <?php if (!empty($profile_css)): ?>
+    <style><?= $profile_css ?></style>
+    <?php endif; ?>
 
     <style> 
         .topbar { 
@@ -237,6 +240,18 @@ if(isLoggedIn()){
         .dropdown-menu {
             z-index: 9999;
         }
+        .banner-container {
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            margin-bottom: 0;
+        }
+        .banner-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -326,7 +341,9 @@ if (isset($show_announcement) && $show_announcement === true):
     </div>
 </div>
 
+<?php if (empty($full_width)): ?>
 <div class="container">
+<?php endif; ?>
     <?php showMessage(); ?>
 
 <script>

@@ -88,12 +88,11 @@ if (isset($_SESSION['user_id'])) {
 <head>
     <meta charset="UTF-8">
     <title>Verify Your Account | BirdChirp</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap-responsive.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/bootstrap.css">
     <style>
         body { 
-            padding-top: 60px; 
-            background-color: #f5f5f5; 
+            background-color: #558B2F;
+            padding-top: 40px;
         }
         .container-box {
             max-width: 460px;
@@ -101,12 +100,8 @@ if (isset($_SESSION['user_id'])) {
             padding: 30px;
             background-color: #fff;
             border: 1px solid #e5e5e5;
-            -webkit-border-radius: 10px;
-               -moz-border-radius: 10px;
-                    border-radius: 10px;
-            -webkit-box-shadow: 0 1px 2px rgba(0,0,0,.05);
-               -moz-box-shadow: 0 1px 2px rgba(0,0,0,.05);
-                    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+            border-radius: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,.05);
         }
         .logo-box { text-align: center; margin-bottom: 25px; }
         .spinner { display: none; margin-left: 5px; vertical-align: middle; }
@@ -135,10 +130,10 @@ if (isset($_SESSION['user_id'])) {
             
             <form id="resendForm">
                 <label><strong>Email Address</strong></label>
-                <input type="email" id="email" name="email" class="input-block-level" value="<?= htmlspecialchars($currentUser['email']) ?>" required>
+                <input type="email" id="email" name="email" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;" value="<?= htmlspecialchars($currentUser['email']) ?>" required>
                 
                 <div style="margin-top: 15px;">
-                    <button type="submit" id="resendBtn" class="btn btn-primary btn-large btn-block">
+                    <button type="submit" id="resendBtn" class="btn primary" style="width:100%;">
                         <span id="btnText">Resend Verification</span>
                         <span id="btnSpinner" class="spinner">...</span>
                     </button>
@@ -150,7 +145,7 @@ if (isset($_SESSION['user_id'])) {
                 <h2 class="text-success">Verified!</h2>
                 <p>You're all set. Your account is now fully active.</p>
                 <br>
-                <a href="/" class="btn btn-primary btn-large btn-block">Go to Home</a>
+                <a href="/" class="btn primary" style="display:block;text-align:center;">Go to Home</a>
             </div>
 
         <?php else: ?>
@@ -158,14 +153,16 @@ if (isset($_SESSION['user_id'])) {
                 <h2>Session Expired</h2>
                 <p>Please log in again to verify your account.</p>
                 <br>
-                <a href="/login" class="btn btn-primary btn-large btn-block">Back to Login</a>
+                <a href="/login" class="btn primary" style="display:block;text-align:center;">Back to Login</a>
             </div>
         <?php endif; ?>
     </div>
 </div>
 
 <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
+<script>
+$(document).on('click', '.close', function() { $(this).parent().hide(); });
+</script>
 
 <script>
 $(document).ready(function() {

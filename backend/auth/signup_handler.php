@@ -173,7 +173,7 @@ try {
         <html>
         <head>
             <meta charset='utf-8'>
-            <link href='https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css' rel='stylesheet'>
+            <link href='https://birdchirp.org/css/bootstrap.css' rel='stylesheet'>
         </head>
         <body style='margin: 0; padding: 0;'>
             <table border='0' cellpadding='0' cellspacing='0' width='100%' style='background-color: #f5f5f5; font-family: \"Helvetica Neue\", Helvetica, Arial, sans-serif; padding: 40px 0;'>

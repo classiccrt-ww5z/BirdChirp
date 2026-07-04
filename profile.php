@@ -127,11 +127,9 @@ if (isset($_GET['ajax_load_more'])) {
     exit;
 }
 
-// user inputs
 $userinputid = $_GET['id'] ?? null;
 $userinputusername = $_GET['user'] ?? null;
 
-// resolve the user input to profile data
 $profile_user = match(true) {
     !empty($userinputid)       => getUserById(intval($userinputid)),
     !empty($userinputusername) => getUserByUsername($userinputusername),
@@ -148,6 +146,8 @@ $id = intval($profile_user['id']);
 $displayName = !empty($profile_user['display_name']) ? $profile_user['display_name'] : $profile_user['username'];
 $page_title = $displayName;
 $user = $profile_user;
+$full_width = true;
+$profile_css = $profile_user['custom_css'] ?? '';
 
 require_once "header.php";
 
@@ -204,142 +204,492 @@ if ($showFollowList) {
     $stmt->execute([$viewer_id, $id]);
     $userList = $stmt->fetchAll();
 }
+
+$pfpSrc = !empty($profile_user['pfp']) ? $profile_user['pfp'] : $profile_user['avatar'];
+$bannerSrc = $profile_user['banner'] ?? 'default.png';
+
+$friends = [];
+if (!$ban) {
+    $fStmt = $pdo->prepare("SELECT u.id, u.username, u.display_name, u.avatar FROM follows f JOIN users u ON f.following_id = u.id WHERE f.follower_id = ? LIMIT 8");
+    $fStmt->execute([$id]);
+    $friends = $fStmt->fetchAll();
+    if (count($friends) < 8) {
+        $fStmt2 = $pdo->prepare("SELECT u.id, u.username, u.display_name, u.avatar FROM follows f JOIN users u ON f.follower_id = u.id WHERE f.following_id = ? LIMIT ?");
+        $fStmt2->execute([$id, 8 - count($friends)]);
+        $moreFriends = $fStmt2->fetchAll();
+        $friends = array_merge($friends, $moreFriends);
+    }
+}
 ?>
 
 <style>
-.sidebar-sticky { position: -webkit-sticky; position: sticky; top: 20px; height: fit-content; }
-.sidebar-sticky h2 { word-wrap: break-word; overflow-wrap: break-word; max-width: 100%; line-height: 1.2; font-size: 22px; }
-.sidebar-sticky .muted { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-.help-block { word-wrap: break-word; overflow-wrap: break-word; white-space: normal; max-width: 100%; display: block; line-height: 1.4; }
-.post-item { padding: 15px 10px; border-bottom: 1px solid #eee; transition: background 0.1s ease; }
-.post-item:hover { background: #f9f9f9; cursor: pointer; }
-.post-layout { display: table; width: 100%; table-layout: fixed; }
-.post-avatar { display: table-cell; width: 58px; vertical-align: top; }
-.post-body { display: table-cell; vertical-align: top; padding-left: 5px; }
+#loading-indicator { display: none; }
 
-.post-meta { font-size: 14px; margin-bottom: 3px; color: #404040; }
-.post-content { 
-    word-wrap: break-word; 
-    font-size: 14px; 
-    line-height: 1.5; 
-    color: #333; 
+.profile-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 16px;
 }
 
-.view-link { font-size: 11px; color: #0084ff; margin-left: 8px; text-decoration: none; opacity: 0.7; }
-.view-link:hover { opacity: 1; text-decoration: underline; }
+.profile-banner-wrap {
+    position: relative;
+    width: 100%;
+    height: 320px;
+    overflow: hidden;
+    background: #1a1a2e;
+    border-bottom: 1px solid #ccc;
+}
+.profile-banner-bg {
+    position: absolute;
+    inset: 0;
+}
+.profile-banner-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.profile-banner-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(transparent 35%, rgba(0,0,0,0.7));
+    pointer-events: none;
+}
+.profile-banner-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 18px 20px;
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.profile-banner-content .btn {
+    text-shadow: none;
+}
+.profile-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+}
+.profile-banner-info h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.profile-banner-info h1 .badge-img {
+    height: 18px;
+    vertical-align: middle;
+    display: inline-block;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+}
+.profile-banner-info .profile-handle {
+    font-size: 14px;
+    color: rgba(255,255,255,0.8);
+    margin: 1px 0 0;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.profile-banner-info .profile-actions-row {
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.profile-avatar {
+    flex-shrink: 0;
+}
+.profile-avatar img {
+    width: 80px;
+    height: 80px;
+    border: 3px solid #fff;
+    object-fit: cover;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.profile-banner-stats {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
 
-.post-actions { margin-top: 8px; padding-bottom: 5px; }
-.post-actions a { text-decoration: none; font-size: 12px; display: flex; align-items: center; }
-.post-actions img { width: 16px; height: 16px; margin-right: 8px; }
+.profile-layout {
+    display: flex;
+    gap: 20px;
+    margin-top: 0;
+}
+.profile-sidebar {
+    width: 240px;
+    flex-shrink: 0;
+}
+.profile-main {
+    flex: 1;
+    min-width: 0;
+}
 
-.user-item { padding: 15px 10px; border-bottom: 1px solid #eee; display: block; text-decoration: none !important; color: inherit; }
-.user-item:hover { background: #fdfdfd; }
-.user-item .info { overflow: hidden; }
-.user-item h3 { margin: 0; font-size: 15px; line-height: 1.2; }
-.user-item .bio { margin: 4px 0 0; color: #666; font-size: 13px; line-height: 1.4; }
-.label.follows-you { font-size: 10px; background: #eee; color: #777; text-shadow: none; vertical-align: middle; margin-left: 5px; }
+.profile-module {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.profile-module h4 {
+    margin: 0;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #666;
+}
+.profile-module .module-body {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #444;
+    line-height: 1.4;
+}
+.profile-module .module-body ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.profile-module .module-body li {
+    padding: 2px 0;
+    font-size: 12px;
+}
 
-#loading-indicator { text-align: center; padding: 25px; display: none; color: #777; font-size: 13px; }
+.friend-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 6px;
+}
+.friend-item {
+    text-align: center;
+    font-size: 10px;
+}
+.friend-item a {
+    text-decoration: none;
+    color: #555;
+}
+.friend-item a:hover {
+    color: #0069d6;
+}
+.friend-item img {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    display: block;
+    margin: 0 auto 3px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+}
+
+.post-item {
+    padding: 12px 14px;
+    border-bottom: 1px solid #eee;
+}
+.post-item:hover {
+    background: #fafbfc;
+    cursor: pointer;
+}
+.post-layout {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+.post-avatar {
+    display: table-cell;
+    width: 54px;
+    vertical-align: top;
+}
+.post-avatar img {
+    width: 44px;
+    height: 44px;
+    border: 1px solid #ddd;
+    object-fit: cover;
+}
+.post-body {
+    display: table-cell;
+    vertical-align: top;
+    padding-left: 5px;
+}
+.post-meta {
+    font-size: 13px;
+    margin-bottom: 2px;
+    color: #404040;
+}
+.post-meta .muted {
+    font-weight: 400;
+    font-size: 12px;
+    color: #999;
+}
+.post-meta strong {
+    font-weight: 600;
+    color: #333;
+}
+.post-meta small.muted {
+    font-size: 11px;
+    color: #aaa;
+    margin-left: 6px;
+}
+.post-content {
+    word-wrap: break-word;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #333;
+    margin-top: 2px;
+}
+.post-actions {
+    margin-top: 6px;
+    display: flex;
+    gap: 30px;
+}
+.post-actions a {
+    text-decoration: none;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #888;
+}
+.post-actions a:hover {
+    color: #0069d6;
+}
+.post-actions img {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+}
+
+.user-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.user-item:hover {
+    background: #fafbfc;
+}
+.user-item .user-avatar img {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border: 1px solid #ddd;
+}
+.user-item .user-info {
+    flex: 1;
+    min-width: 0;
+}
+.user-item .user-info h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.user-item .user-info h3 a {
+    color: #333;
+    text-decoration: none;
+}
+.user-item .user-info h3 a:hover {
+    text-decoration: underline;
+}
+.user-item .user-info .user-username {
+    font-weight: 400;
+    font-size: 12px;
+    color: #999;
+}
+.user-item .user-info .user-bio {
+    margin: 2px 0 0;
+    color: #666;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.tabs {
+    margin: 0 0 0;
+    border-bottom: 1px solid #ddd;
+}
+.tabs > li {
+    margin-bottom: -1px;
+}
+.tabs > li > a {
+    padding: 0 14px;
+    line-height: 34px;
+    font-size: 12px;
+    color: #666;
+    border: 1px solid transparent;
+    border-radius: 4px 4px 0 0;
+}
+.tabs > li > a:hover {
+    background: #f5f5f5;
+    border-color: #eee #eee #ddd;
+    text-decoration: none;
+}
+.tabs .active > a,
+.tabs .active > a:hover {
+    color: #333;
+    font-weight: 600;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-bottom-color: transparent;
+}
+
+.follow-list-mode .tabs {
+    display: none;
+}
+.follow-list-mode #loading-indicator {
+    display: none !important;
+}
+
+.banned-msg {
+    margin: 16px;
+    padding: 12px 16px;
+    background: #fff3f3;
+    border: 1px solid #ffcdd2;
+    color: #c62828;
+}
+.banned-msg strong {
+    font-size: 14px;
+}
+
+.label.follows-you {
+    font-size: 10px;
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 1px 5px;
+    margin-left: 4px;
+    font-weight: 500;
+}
+
+@media (max-width: 820px) {
+    .profile-layout { flex-direction: column; }
+    .profile-sidebar { width: auto; }
+    .profile-banner-wrap { height: 260px; }
+    .profile-banner-left { flex-wrap: wrap; }
+    .friend-grid { grid-template-columns: repeat(3, 1fr); }
+    .profile-wrap { padding: 0 10px; }
+}
 </style>
 
-<?php if ($showFollowList): ?>
-<style>
-.tabs { display: none; }
-</style>
-<?php endif; ?>
+<div class="profile-wrap">
+<?php if($showFollowList): ?><div class="follow-list-mode"><?php endif; ?>
 
-<div class="container">
-    <div class="page-header">
-        <h1><?= htmlspecialchars($displayName) ?> <?php if(!$ban): ?><small><?= ucfirst($activeTab) ?></small><?php endif; ?></h1>
+<div class="profile-banner-wrap">
+    <div class="profile-banner-bg">
+        <img src="/images/banners/<?= htmlspecialchars($bannerSrc) ?>" alt="">
     </div>
-
-
-                <div class="row">
-        <div class="span4 sidebar-sticky">
-            <div style="text-align: center; padding-bottom: 20px;">
-                <img src="/images/avatars/<?= htmlspecialchars($profile_user['avatar'] ?? 'default.png', ENT_QUOTES, 'UTF-8') ?>" class="thumbnail" style="margin: 0 auto 15px; display: block; width: 160px; height: 160px;">
-                <h2 style="margin-bottom: 5px; line-height: 1.2;">
-                    <?= htmlspecialchars($displayName) ?><?php if(!empty($profile_user['partner'])): ?> <img src="/images/misc/partner.png" alt="Partner" style="height:20px; vertical-align:middle;display:inline-block;" title="Partner"><?php endif; ?><?php if(!empty($profile_user['admin'])): ?> <img src="/images/misc/staff.png" alt="Staff" style="height:20px; vertical-align:middle;display:inline-block;" title="Staff"><?php endif; ?>
-                    <span class="muted" style="font-size:14px; margin-left:5px; font-weight:normal;">@<?= htmlspecialchars($profile_user['username']) ?></span>
-                </h2>
-                <p class="help-block"><?=htmlspecialchars($profile_user['bio'] ?? 'No bio yet.')?></p>
-
-                
-                <?php if (isset($_SESSION['user_id']) && $_SESSION['user_id'] != $id): ?>
-                    <div class="btn-follow-container">
+    <div class="profile-banner-overlay"></div>
+    <div class="profile-banner-content">
+        <div class="profile-banner-left">
+            <div class="profile-avatar">
+                <img src="/images/avatars/<?= htmlspecialchars($pfpSrc) ?>" alt="">
+            </div>
+            <div class="profile-banner-info">
+                <h1>
+                    <?= htmlspecialchars($displayName) ?>
+                    <?php if(!empty($profile_user['partner'])): ?><img src="/images/misc/partner.png" alt="" class="badge-img" title="Partner"><?php endif; ?>
+                    <?php if(!empty($profile_user['admin'])): ?><img src="/images/misc/staff.png" alt="" class="badge-img" title="Staff"><?php endif; ?>
+                </h1>
+                <div class="profile-handle">@<?= htmlspecialchars($profile_user['username']) ?></div>
+                <div class="profile-actions-row">
+                    <?php if (isset($_SESSION['user_id']) && $_SESSION['user_id'] != $id): ?>
                         <?php if ($isFollowing): ?>
-                            <a href="/backend/users/unfollow_user.php?id=<?=$id?>&csrf=<?= $csrf ?>" class="btn danger">Unfollow</a>
+                            <a href="/backend/users/unfollow_user.php?id=<?=$id?>&csrf=<?= $csrf ?>" class="btn danger small">Unfollow</a>
                         <?php elseif (!$ban): ?>
-                            <a href="/backend/users/follow_user.php?id=<?=$id?>&csrf=<?= $csrf ?>" class="btn success">Follow</a>
+                            <a href="/backend/users/follow_user.php?id=<?=$id?>&csrf=<?= $csrf ?>" class="btn success small">+ Follow</a>
                         <?php endif; ?>
-                    </div>
-                <?php endif; ?>
+                    <?php endif; ?>
+                    <?php if (isset($_SESSION['user_id']) && $_SESSION['user_id'] == $id): ?>
+                        <a href="/settings" class="btn small">Edit Profile</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php if(!$ban): ?>
+        <div class="profile-banner-stats">
+            <a href="/u/<?=$id?>/posts" class="btn small<?= $activeTab == 'posts' || $activeTab == 'replies' || $activeTab == 'media' ? ' primary' : '' ?>"><?=$totalPosts?> Posts</a>
+            <a href="/u/<?=$id?>/followers" class="btn small<?= $activeTab == 'followers' ? ' primary' : '' ?>"><?=$totalFollowers?> Followers</a>
+            <a href="/u/<?=$id?>/following" class="btn small<?= $activeTab == 'following' ? ' primary' : '' ?>"><?=$totalFollowing?> Following</a>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
 
+<div class="profile-content" style="margin-top: 20px;">
+    <div class="profile-layout">
+        <div class="profile-sidebar">
+            <div class="profile-module">
+                <div class="module-body" style="padding:8px 10px;">
+                    <p style="margin:0;font-size:12px;color:#888;">Joined <?= date('M d, Y', strtotime($profile_user['created_at'])) ?></p>
+                    <?php if(!empty($profile_user['bio'])): ?>
+                    <p style="margin:6px 0 0;padding-top:6px;border-top:1px solid #eee;color:#555;font-size:12px;line-height:1.5;"><?= nl2br(htmlspecialchars($profile_user['bio'])) ?></p>
+                    <?php endif; ?>
+                </div>
             </div>
 
-            <?php if(!$ban): ?>
-            <ul class="unstyled" style="padding: 0 10px;">
-                <li style="padding: 8px 0; border-top: 1px solid #eee;">
-                    <a href="/u/<?=$id?>/posts" style="display: block; text-decoration: none; color: inherit;">
-                        <strong>Posts</strong> <span class="label pull-right notice"><?=$totalPosts?></span>
-                    </a>
-                </li>
-                <li style="border-top: 1px solid #eee;">
-                    <a href="/u/<?=$id?>/followers" style="display: block; padding: 8px 0; text-decoration: none; color: inherit;">
-                        <strong>Followers</strong> <span class="label pull-right"><?=$totalFollowers?></span>
-                    </a>
-                </li>
-                <li style="border-top: 1px solid #eee; border-bottom: 1px solid #eee;">
-                    <a href="/u/<?=$id?>/following" style="display: block; padding: 8px 0; text-decoration: none; color: inherit;">
-                        <strong>Following</strong> <span class="label pull-right"><?=$totalFollowing?></span>
-                    </a>
-                </li>
-            </ul>
+            <?php if (!empty($friends)): ?>
+            <div class="profile-module">
+                <h4>Friends</h4>
+                <div class="friend-grid">
+                    <?php foreach ($friends as $f):
+                        $fName = !empty($f['display_name']) ? $f['display_name'] : $f['username'];
+                    ?>
+                        <div class="friend-item">
+                            <a href="/u/<?= $f['id'] ?>">
+                                <img src="/images/avatars/<?= htmlspecialchars($f['avatar'] ?? 'default.png') ?>" alt="">
+                                <?= htmlspecialchars(mb_strimwidth($fName, 0, 10, '...')) ?>
+                            </a>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
             <?php endif; ?>
         </div>
 
-        <div class="span12">
-            <?php if ($ban): ?>
-                <div class="alert-message block-message error">
-                    <p><strong>Banned:</strong> <?= htmlspecialchars($ban['reason']) ?></p>
-                </div>
+        <div class="profile-main">
+            <?php if($ban): ?>
+                <div class="banned-msg"><strong>Banned:</strong> <?= htmlspecialchars($ban['reason']) ?></div>
             <?php elseif ($showFollowList): ?>
-                <div class="tab-content">
-                    <?php if (!$userList): ?>
-                        <div class="alert-message info" style="margin-top:20px;">
-                            <p>No users found in this list :( </p>
-                        </div>
-                    <?php else: ?>
-                        <?php foreach ($userList as $u): 
-                            $u_name = !empty($u['display_name']) ? $u['display_name'] : $u['username'];
-                        ?>
-                            <div class="user-item">
-                                <div class="row">
-                                    <div class="span1">
-                                        <a href="/u/<?= $u['id'] ?>">
-                                            <img src="/images/avatars/<?= e($u['avatar'] ?: 'default.png') ?>" class="thumbnail" style="width:48px;height:48px;">
-                                        </a>
-                                    </div>
-                                    <div class="span8 info">
-                                        <h3>
-                                            <a href="/u/<?= $u['id'] ?>" style="color: #404040; text-decoration: none;">
-                                                <?= e($u_name) ?>
-                                            </a>
-                                            <span class="muted" style="font-weight: normal; font-size: 13px;">@<?= e($u['username']) ?></span>
-                                            <?php if($u['follows_viewer']): ?>
-                                                <span class="label follows-you">Follows you</span>
-                                            <?php endif; ?>
-                                        </h3>
-                                        <p class="bio"><?= e($u['bio'] ?: 'No bio available.') ?></p>
-                                    </div>
-                                    <div class="span2" style="text-align: right;">
-                                        <a href="/u/<?= $u['id'] ?>" class="btn small">View</a>
-                                    </div>
-                                </div>
+                <?php if (!$userList): ?>
+                    <div class="alert-message info" style="margin-top:16px;"><p>No users found in this list :(</p></div>
+                <?php else: ?>
+                    <?php foreach ($userList as $u):
+                        $u_name = !empty($u['display_name']) ? $u['display_name'] : $u['username'];
+                    ?>
+                        <div class="user-item">
+                            <div class="user-avatar">
+                                <a href="/u/<?= $u['id'] ?>">
+                                    <img src="/images/avatars/<?= e($u['avatar'] ?: 'default.png') ?>">
+                                </a>
                             </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
+                            <div class="user-info">
+                                <h3>
+                                    <a href="/u/<?= $u['id'] ?>">
+                                        <?= e($u_name) ?>
+                                        <?php if(!empty($u['partner'])): ?><img src="/images/misc/partner.png" alt="" style="height:16px;vertical-align:middle;"><?php endif; ?>
+                                        <?php if(!empty($u['admin'])): ?><img src="/images/misc/staff.png" alt="" style="height:16px;vertical-align:middle;"><?php endif; ?>
+                                    </a>
+                                    <span class="user-username">@<?= e($u['username']) ?></span>
+                                    <?php if($u['follows_viewer']): ?>
+                                        <span class="label follows-you">Follows you</span>
+                                    <?php endif; ?>
+                                </h3>
+                                <p class="user-bio"><?= e(mb_strimwidth($u['bio'] ?? 'No bio available.', 0, 120, '...')) ?></p>
+                            </div>
+                            <div>
+                                <a href="/u/<?= $u['id'] ?>" class="btn small">View</a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             <?php else: ?>
                 <ul class="tabs">
                     <li class="<?= $activeTab=='posts' ? 'active' : '' ?>"><a href="/user/<?= htmlspecialchars($profile_user['username']) ?>/posts">Posts</a></li>
@@ -349,7 +699,7 @@ if ($showFollowList) {
                 </ul>
 
                 <div id="post-feed">
-                    <?php 
+                    <?php
                         if ($activeTab == 'replies') {
                             $sql = "SELECT r.*, p.content as post_content, u.username, u.display_name, u.avatar,
                                     (SELECT COUNT(*) FROM likes l WHERE l.post_id = r.post_id) as likes_count,
@@ -389,8 +739,12 @@ if ($showFollowList) {
     </div>
 </div>
 
+<?php if($showFollowList): ?></div><?php endif; ?>
+</div>
+
 <script>
 $(document).ready(function() {
+    <?php if(!$showFollowList): ?>
     var isLoading = false;
     var endOfPosts = false;
     var userId = <?= json_encode($id) ?>;
@@ -423,12 +777,16 @@ $(document).ready(function() {
             } else {
                 $('#post-feed').append(data);
             }
+        }).fail(function() {
+            isLoading = false;
+            $('#loading-indicator').hide();
         });
     }
     $(document).on('click', '.clickable-post', function(e) {
         if ($(e.target).closest('a, button, video, source').length) return;
         window.location.href = '/post/' + $(this).data('nav-id');
     });
+    <?php endif; ?>
 });
 </script>
 
