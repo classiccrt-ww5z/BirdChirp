@@ -326,7 +326,7 @@ if (isset($show_announcement) && $show_announcement === true):
                             <li><a href="/manage_posts">My Posts</a></li>
                             <li><a href="/settings">Settings</a></li>
                             <?php if(isset($_SESSION['admin']) && $_SESSION['admin']==1): ?>
-                                <li><a href="/legacy_admin/index">Admin Panel</a></li>
+                                <li><a href="/admin/index.php">Admin Panel</a></li>
                             <?php endif; ?>
                             <li class="divider"></li>
                             <li><a href="/backend/auth/logout_handler">Logout</a></li>

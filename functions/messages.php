@@ -6,30 +6,21 @@ function setMessage($type, $text)
         "text" => $text
     ];
 }
-function showMessage()
+function showMessage($admin = false)
 {
     if ($_SESSION['site_message']??null) {
-
         $msg = $_SESSION['site_message'];
-        $type = $msg['type'] ?? 'info'; 
-        switch ($type) {
-            case 'success':
-                $class = 'success';
-                break;
-            case 'error':
-                $class = 'error';
-                break;
-            case 'warning':
-                $class = 'warning';
-                break;
-            default:
-                $class = 'info';
-                break;
+        $type = $msg['type'] ?? 'info';
+        $text = htmlspecialchars($msg['text']);
+        if ($admin) {
+            $map = ['success'=>'success','error'=>'danger','warning'=>'warning','info'=>'info'];
+            $c = $map[$type] ?? 'info';
+            echo "<div class=\"alert alert-$c\">$text</div>";
+        } else {
+            $map = ['success'=>'success','error'=>'error','warning'=>'warning','info'=>'info'];
+            $c = $map[$type] ?? 'info';
+            echo "<div class=\"alert-message $c\"><p>$text</p></div>";
         }
-        echo "<div class='alert-message $class'><p>"
-            . htmlspecialchars($msg['text'])
-            . "</p></div>";
-
         unset($_SESSION['site_message']);
     }
 }
