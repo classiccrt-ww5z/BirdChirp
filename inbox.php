@@ -54,8 +54,14 @@ $unreadCount = getUnreadNotificationCount($userId);
 .notif-type-reply { color: #1b95e0; font-weight: 500; }
 .notif-type-follow { color: #17bf63; font-weight: 500; }
 .notif-type-mention { color: #7941e6; font-weight: 500; }
+.notif-type-retweet { color: #17bf63; font-weight: 500; }
+.notif-type-message { color: #1b95e0; font-weight: 500; }
+.notif-preview { font-size: 13px; color: #666; margin-top: 4px; padding: 6px 10px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #ddd; display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notif-group-more { font-size: 12px; color: #999; margin-top: 2px; }
 .notif-actions { margin-top: 8px; }
 .notif-actions a { margin-right: 10px; font-size: 12px; }
+.notif-clickable { cursor: pointer; }
+.notif-clickable:hover .notif-meta a strong { text-decoration: underline; }
 </style>
 
 <div class="container mt-4">
@@ -78,9 +84,28 @@ $unreadCount = getUnreadNotificationCount($userId);
             <div>
                 <p>No notifications yet.</p>
             </div>
-        <?php else: ?>
-            <?php foreach ($notifications as $notif): ?>
-                <div class="notif-item <?= $notif['is_read'] ? '' : 'unread' ?>">
+        <?php else:
+            $grouped = [];
+            $i = 0;
+            foreach ($notifications as $notif) {
+                if ($i > 0 &&
+                    $notif['type'] === $grouped[count($grouped)-1]['type'] &&
+                    $notif['post_id'] === $grouped[count($grouped)-1]['post_id'] &&
+                    in_array($notif['type'], ['like', 'retweet'])) {
+                    $grouped[count($grouped)-1]['extra_users'][] = $notif;
+                    $grouped[count($grouped)-1]['is_read'] = $grouped[count($grouped)-1]['is_read'] && $notif['is_read'];
+                } else {
+                    $notif['extra_users'] = [];
+                    $grouped[] = $notif;
+                }
+                $i++;
+            }
+        ?>
+            <?php foreach ($grouped as $notif):
+                $hasPostLink = !empty($notif['post_id']) && in_array($notif['type'], ['like', 'reply', 'retweet']);
+                $extraCount = count($notif['extra_users']);
+            ?>
+                <div class="notif-item <?= $notif['is_read'] ? '' : 'unread' ?> <?= $hasPostLink ? 'notif-clickable' : '' ?>" <?= $hasPostLink ? 'onclick="window.location.href=\'/view_post.php?id=' . (int)$notif['post_id'] . '\'"' : '' ?>>
                     <div class="notif-layout">
                         <div class="notif-avatar">
                             <a href="/u/<?= $notif['from_user_id'] ?>">
@@ -92,21 +117,41 @@ $unreadCount = getUnreadNotificationCount($userId);
                                 <a href="/u/<?= $notif['from_user_id'] ?>">
                                     <strong style="color: #404040;"><?= htmlspecialchars($notif['display_name'] ?: $notif['username']) ?></strong>
                                 </a>
+                                <?php if ($extraCount > 0): ?>
+                                    <span style="color: #999; font-weight: normal;"> and <?= $extraCount ?> other<?= $extraCount > 1 ? 's' : '' ?></span>
+                                <?php endif; ?>
                                 <span class="notif-type-<?= htmlspecialchars($notif['type']) ?>">
                                     <?php switch($notif['type']) {
                                         case 'like': echo 'liked your post'; break;
                                         case 'reply': echo 'replied to your post'; break;
+                                        case 'retweet': echo 'reposted your post'; break;
                                         case 'follow': echo 'started following you'; break;
                                         case 'mention': echo 'mentioned you'; break;
                                     } ?>
                                 </span>
                             </div>
+                            <?php if (!empty($notif['message']) && in_array($notif['type'], ['like', 'reply', 'retweet'])): ?>
+                                <span class="notif-preview"><?= htmlspecialchars($notif['message'], ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php endif; ?>
+                            <?php if ($extraCount > 0): ?>
+                                <div class="notif-group-more">
+                                    <?php
+                                    $names = array_slice(array_map(function($n) {
+                                        return htmlspecialchars($n['display_name'] ?: $n['username']);
+                                    }, $notif['extra_users']), 0, 3);
+                                    echo implode(', ', $names);
+                                    if ($extraCount > 3) {
+                                        echo ' and ' . ($extraCount - 3) . ' more';
+                                    }
+                                    ?>
+                                </div>
+                            <?php endif; ?>
                             <div class="notif-time"><?= date('M d, g:i a', strtotime($notif['created_at'])) ?></div>
                             <div class="notif-actions">
                                 <?php if (!$notif['is_read']): ?>
                                     <a href="?mark_read=<?= $notif['id'] ?>&csrf=<?= $csrf ?>" class="btn small">Mark read</a>
                                 <?php endif; ?>
-                                <a href="?delete=<?= $notif['id'] ?>&csrf=<?= $csrf ?>" class="btn small danger" onclick="return confirm('Delete this notification?')">Delete</a>
+                                <a href="?delete=<?= $notif['id'] ?>&csrf=<?= $csrf ?>" class="btn small danger" onclick="event.stopPropagation(); return confirm('Delete this notification?')">Delete</a>
                             </div>
                         </div>
                     </div>

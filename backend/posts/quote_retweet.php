@@ -38,40 +38,26 @@ if ($lastPost && ($current_time - strtotime($lastPost)) < $cooldown_seconds) {
 
 $_SESSION['last_post_time'] = $current_time;
 $content = trim($_POST['content'] ?? '');
+$quote_id = intval($_POST['quote_id'] ?? 0);
 $image = trim($_POST['image'] ?? null);
 $video = trim($_POST['video'] ?? null);
-$quote_id = intval($_POST['quote_id'] ?? 0);
+
+if ($quote_id <= 0) {
+    setMessage("error", "Invalid quoted post.");
+    header("Location: ../../index.php");
+    exit;
+}
 
 if (empty($content) && empty($image) && empty($video)) {
-    setMessage("error", "Post cannot be empty.");
+    setMessage("error", "Quote post cannot be empty.");
     header("Location: ../../index.php");
     exit;
 }
 
 $content = htmlspecialchars($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-if ($quote_id > 0) {
-    createQuoteRetweet($_SESSION['user_id'], $content, $quote_id, $image, $video);
-    $postId = $pdo->lastInsertId();
-    notifyOnRetweet($quote_id, $_SESSION['user_id']);
-} else {
-    createPost($_SESSION['user_id'], $content, $image, $video);
-    $postId = $pdo->lastInsertId();
-}
-
-if (!empty($_POST['poll_active']) && $_POST['poll_active'] == '1' && !empty($_POST['poll_question'])) {
-    require_once __DIR__ . '/../../functions/polls.php';
-    $options = [];
-    for ($i = 1; $i <= 4; $i++) {
-        if (!empty($_POST['poll_option_' . $i])) {
-            $options[] = $_POST['poll_option_' . $i];
-        }
-    }
-    if (count($options) >= 2) {
-        $question = htmlspecialchars(trim($_POST['poll_question']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        createPoll($postId, $question, $options);
-    }
-}
-setMessage("success", "Posted successfully!");
+createQuoteRetweet($_SESSION['user_id'], $content, $quote_id, $image, $video);
+notifyOnRetweet($quote_id, $_SESSION['user_id']);
+setMessage("success", "Quote posted successfully!");
 header("Location: ../../index.php");
 exit;

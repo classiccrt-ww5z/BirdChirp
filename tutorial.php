@@ -1,7 +1,7 @@
 <?php require_once "header.php"; ?>
 <div class="container">
 <div class="page-header">
-<h1>CSS Tutorial for BirdChirp</h1>
+<h1>CSS Tutorial for <?php echo $SITE_NAME; ?></h1>
 </div>
 
 <div style="max-width:750px;font-size:14px;line-height:1.7;">

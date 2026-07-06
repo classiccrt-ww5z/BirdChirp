@@ -29,11 +29,16 @@ CREATE TABLE IF NOT EXISTS posts (
     content TEXT DEFAULT NULL,
     image VARCHAR(255) DEFAULT NULL,
     video VARCHAR(255) DEFAULT NULL,
+    retweet_of_id INT DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_user_id (user_id),
     INDEX idx_created_at (created_at),
+    pinned TINYINT(1) NOT NULL DEFAULT 0,
+    INDEX idx_retweet_of (retweet_of_id),
     FULLTEXT idx_content (content)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Migration: ALTER TABLE posts ADD COLUMN pinned TINYINT(1) NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS replies (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -98,6 +103,14 @@ CREATE TABLE IF NOT EXISTS remember_tokens (
     INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS retweets (
+    user_id INT NOT NULL,
+    post_id INT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, post_id),
+    INDEX idx_post_id (post_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS login_attempts (
     ip VARCHAR(45) NOT NULL PRIMARY KEY,
     attempts INT NOT NULL DEFAULT 0,
@@ -127,3 +140,29 @@ CREATE TABLE IF NOT EXISTS ip_bans (
 INSERT INTO site_settings (setting_key, setting_value) VALUES ('allow_signup', '1') ON DUPLICATE KEY UPDATE setting_value=setting_value;
 INSERT INTO site_settings (setting_key, setting_value) VALUES ('require_birthdate', '1') ON DUPLICATE KEY UPDATE setting_value=setting_value;
 INSERT INTO site_settings (setting_key, setting_value) VALUES ('min_age', '14') ON DUPLICATE KEY UPDATE setting_value=setting_value;
+
+CREATE TABLE IF NOT EXISTS polls (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT NOT NULL UNIQUE,
+    question VARCHAR(280) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS poll_options (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    poll_id INT NOT NULL,
+    option_text VARCHAR(140) NOT NULL,
+    FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS poll_votes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    poll_id INT NOT NULL,
+    option_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_vote (poll_id, user_id),
+    FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE,
+    FOREIGN KEY (option_id) REFERENCES poll_options(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -135,7 +135,7 @@ function parsePostContent($content) {
         $url_pattern = '/(?<!["\'=\/])(https?:\/\/[^\s<]+)/i';
         $content = preg_replace_callback($url_pattern, function($matches) {
             $url = $matches[1];
-            $trusted_domains = ['birdchirp.org','kamtape.com','betacast.org','youtube.com','youtu.be','vidlii.com','x.com','twitter.com','imgur.com','tenor.com','google.com','catbox.moe','files.catbox.moe' ];
+            $trusted_domains = [$_SERVER['HTTP_HOST'],'kamtape.com','betacast.org','youtube.com','youtu.be','vidlii.com','x.com','twitter.com','imgur.com','tenor.com','google.com','catbox.moe','files.catbox.moe' ];
             $host = strtolower(parse_url($url, PHP_URL_HOST));
             $is_trusted = false;
 
@@ -176,4 +176,31 @@ function deleteReply($replyId, $userId) {
     global $pdo;
     $stmt = $pdo->prepare("DELETE FROM replies WHERE id = ? AND user_id = ?");
     return $stmt->execute([$replyId, $userId]);
+}
+
+function isRetweeted($userId, $postId) {
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT 1 FROM retweets WHERE user_id = ? AND post_id = ?");
+    $stmt->execute([$userId, $postId]);
+    return $stmt->fetchColumn() !== false;
+}
+
+function getRetweetCount($postId) {
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM retweets WHERE post_id = ?");
+    $stmt->execute([$postId]);
+    return (int)$stmt->fetchColumn();
+}
+
+function getRetweetPost($userId, $postId) {
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT * FROM retweets WHERE user_id = ? AND post_id = ?");
+    $stmt->execute([$userId, $postId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+function createQuoteRetweet($userId, $content, $originalPostId, $image = null, $video = null) {
+    global $pdo;
+    $stmt = $pdo->prepare("INSERT INTO posts (user_id, content, image, video, retweet_of_id) VALUES (?, ?, ?, ?, ?)");
+    return $stmt->execute([$userId, $content, $image, $video, $originalPostId]);
 }

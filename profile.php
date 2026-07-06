@@ -3,12 +3,13 @@ require_once "database/config.php";
 require_once "functions/users.php";
 require_once "functions/posts.php";
 require_once "functions/security.php";
+require_once "functions/polls.php";
 
 $uid = $_SESSION['user_id'] ?? 0;
 $csrf = generateCSRF();
 
-function renderPostItems($items, $tab) {
-    global $uid;
+function renderPostItems($items, $tab, $isOwner = false) {
+    global $uid, $csrf, $pdo;
     if (!$items) {
         return '<div class="alert-message info" style="margin-top:20px;"><p>Nothing to show here yet.</p></div>';
     }
@@ -23,7 +24,8 @@ function renderPostItems($items, $tab) {
         
         $hasLiked = $item['has_liked'] ?? false;
         $likesCount = $item['likes_count'] ?? 0;
-        $likeStyle = $hasLiked ? 'color:rgb(5, 190, 5); font-weight: bold;' : 'color: #657786;';
+        $hasRetweeted = $item['has_retweeted'] ?? false;
+        $retweetCount = $item['retweet_count'] ?? 0;
         
         $output .= '<div class="post-item clickable-post" data-id="'.$realId.'" data-nav-id="'.$navId.'">';
         $output .= '<div class="post-layout">';
@@ -31,6 +33,12 @@ function renderPostItems($items, $tab) {
         $output .= '<img src="/images/avatars/'.htmlspecialchars($item['avatar'] ?? 'default.png', ENT_QUOTES, 'UTF-8').'" class="thumbnail" style="width:48px;height:48px;margin:0;">';
         $output .= '</div>';
         $output .= '<div class="post-body">';
+        
+        if ($tab == 'posts' && !empty($item['retweeter_id'])) {
+            $output .= '<div style="font-size:11px; color:#657786; margin-bottom:2px;">' . svg_icon('loop-circular', '', 12, 'vertical-align:middle;margin-right:2px') . '
+                Reposted
+            </div>';
+        }
         
         if ($tab == 'replies') {
             $output .= '<div class="post-meta"><span class="muted">Replied to: "'.htmlspecialchars(substr($item['post_content'] ?? '', 0, 40)).'..."</span> <a href="/post/'.$navId.'" class="view-link"></a></div>';
@@ -63,16 +71,40 @@ function renderPostItems($items, $tab) {
             }
             $output .= '</div>';
         }
+
+        if ($tab != 'replies') {
+            $pollData = getPollForPost($realId);
+            if ($pollData) {
+                $userVote = $uid ? getUserPollVote($pollData['id'], $uid) : false;
+                $output .= '<div style="margin-top:10px; padding:10px; border:1px solid #e0e0e0; border-radius:8px; background:#fafafa;">';
+                $output .= '<div style="font-weight:600; font-size:14px; margin-bottom:8px;">'.htmlspecialchars($pollData['question']).'</div>';
+                foreach ($pollData['options'] as $opt) {
+                    $pct = $pollData['total_votes'] > 0 ? round(($opt['votes'] ?? 0) / $pollData['total_votes'] * 100) : 0;
+                    $output .= '<div style="position:relative; margin-bottom:6px;"><div style="position:relative; z-index:1; display:flex; justify-content:space-between; padding:8px 12px; border-radius:4px; border:1px solid #ccc; background:#fff;"><span>'.htmlspecialchars($opt['option_text']).'</span>';
+                    if ($userVote || $pollData['total_votes'] > 0) {
+                        $output .= '<span style="font-weight:600;">'.$pct.'%</span>';
+                    }
+                    $output .= '</div>';
+                    if ($userVote || $pollData['total_votes'] > 0) {
+                        $bg = $userVote == $opt['id'] ? '#b3d9ff' : '#e8e8e8';
+                        $output .= '<div style="position:absolute; top:0; left:0; height:100%; width:'.$pct.'%; background:'.$bg.'; border-radius:4px;"></div>';
+                    }
+                    $output .= '</div>';
+                }
+                $output .= '<div style="font-size:11px; color:#888; margin-top:4px;">'.$pollData['total_votes'].' vote'.($pollData['total_votes'] != 1 ? 's' : '').'</div>';
+                $output .= '</div>';
+            }
+        }
         
         $output .= '<div class="post-actions" style="margin-top: 8px; display: flex; gap: 50px; padding-bottom: 5px;">';
-        $output .= '<a href="/post/'.$realId.'#reply-area" style="color:#657786;">
-            <img src="/images/misc/reply.png" style="opacity:0.6">
-            <span>Reply</span>
-        </a>';
-        $output .= '<a href="/backend/posts/like_post.php?id='.$realId.'&csrf='.$csrf.'" style="'.$likeStyle.'">
-            <img src="/images/misc/likes.png" style="opacity: '.($hasLiked ? '1' : '0.6').'">
-            <span>'.intval($likesCount).'</span>
-        </a>';
+        $output .= '<a href="/post/'.$realId.'#reply-area" style="color:#657786; font-size:12px; display:flex; align-items:center;">'.svg_icon('chat', '', 16, 'vertical-align:middle;margin-right:4px').'<span>Reply</span></a>';
+        $output .= '<a href="/backend/posts/retweet.php?id='.$realId.'&csrf='.$csrf.'" class="btn-retweet'.($hasRetweeted ? ' retweeted' : '').'" data-post-id="'.$realId.'">'.svg_icon('loop-circular', '', 16, 'vertical-align:middle;margin-right:4px').'<span class="count">'.intval($retweetCount).'</span></a>';
+        $output .= '<a href="/?quote='.$realId.'" style="color:#657786;">'.svg_icon('double-quote-sans-left', '', 14, 'vertical-align:middle;margin-right:4px').'<span>Quote</span></a>';
+        $output .= '<a href="/backend/posts/like_post.php?id='.$realId.'&csrf='.$csrf.'" class="btn-like'.($hasLiked ? ' liked' : '').'" data-post-id="'.$realId.'">'.svg_icon('heart', 'heart-svg', 16, 'vertical-align:middle;margin-right:4px').'<span class="count">'.intval($likesCount).'</span></a>';
+        if ($isOwner) {
+            $pinText = !empty($item['pinned']) ? 'Unpin' : 'Pin';
+            $output .= '<a href="/backend/posts/pin.php?id='.$realId.'&csrf='.$csrf.'" style="color:#657786; font-size:12px; display:flex; align-items:center; gap:4px; text-decoration:none;">'.svg_icon('pin', '', 14, '').$pinText.'</a>';
+        }
         $output .= '</div>';
         
         $output .= '</div>'; 
@@ -99,31 +131,51 @@ if (isset($_GET['ajax_load_more'])) {
     } elseif ($tab == 'media') {
         $sql = "SELECT p.*, u.username, u.display_name, u.avatar,
                 (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
-                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked
+                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
                 FROM posts p JOIN users u ON p.user_id = u.id
                 WHERE p.user_id = ? AND (p.image IS NOT NULL AND p.image != '' OR p.video IS NOT NULL AND p.video != '') AND p.id < ? ORDER BY p.id DESC LIMIT 10";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$uid, $id, $last_id]);
+        $stmt->execute([$uid, $uid, $id, $last_id]);
     } elseif ($tab == 'likes') {
         $sql = "SELECT p.*, u.username, u.display_name, u.avatar,
                 (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
-                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked
+                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
                 FROM posts p 
                 JOIN users u ON p.user_id = u.id
                 JOIN likes l ON l.post_id = p.id
                 WHERE l.user_id = ? AND p.id < ? ORDER BY p.id DESC LIMIT 10";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$uid, $id, $last_id]);
+        $stmt->execute([$uid, $uid, $id, $last_id]);
     } else {
-        $sql = "SELECT p.*, u.username, u.display_name, u.avatar,
+        $sql = "SELECT p.*, u.username, u.display_name, u.avatar, u.partner, u.admin,
                 (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
-                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked
+                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted,
+                NULL as retweeter_id, NULL as retweeter_username, NULL as retweeter_display_name
                 FROM posts p JOIN users u ON p.user_id = u.id
-                WHERE p.user_id = ? AND p.id < ? ORDER BY p.id DESC LIMIT 10";
+                WHERE p.user_id = ? AND p.id < ?
+                UNION ALL
+                SELECT p.*, u.username, u.display_name, u.avatar, u.partner, u.admin,
+                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
+                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted,
+                r.user_id as retweeter_id, ru.username as retweeter_username, ru.display_name as retweeter_display_name
+                FROM retweets r
+                JOIN posts p ON p.id = r.post_id
+                JOIN users u ON p.user_id = u.id
+                JOIN users ru ON r.user_id = ru.id
+                WHERE r.user_id = ? AND p.retweet_of_id IS NULL AND p.id < ?
+                ORDER BY id DESC LIMIT 10";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$uid, $id, $last_id]);
+        $stmt->execute([$uid, $uid, $id, $last_id, $uid, $uid, $id, $last_id]);
     }
-    echo renderPostItems($stmt->fetchAll(), $tab);
+    echo renderPostItems($stmt->fetchAll(), $tab, ($uid == $id));
     exit;
 }
 
@@ -208,16 +260,16 @@ if ($showFollowList) {
 $pfpSrc = !empty($profile_user['pfp']) ? $profile_user['pfp'] : $profile_user['avatar'];
 $bannerSrc = $profile_user['banner'] ?? 'default.png';
 
-$friends = [];
+$follows = [];
 if (!$ban) {
     $fStmt = $pdo->prepare("SELECT u.id, u.username, u.display_name, u.avatar FROM follows f JOIN users u ON f.following_id = u.id WHERE f.follower_id = ? LIMIT 8");
     $fStmt->execute([$id]);
-    $friends = $fStmt->fetchAll();
-    if (count($friends) < 8) {
+    $follows = $fStmt->fetchAll();
+    if (count($follows) < 8) {
         $fStmt2 = $pdo->prepare("SELECT u.id, u.username, u.display_name, u.avatar FROM follows f JOIN users u ON f.follower_id = u.id WHERE f.following_id = ? LIMIT ?");
-        $fStmt2->execute([$id, 8 - count($friends)]);
+        $fStmt2->execute([$id, 8 - count($follows)]);
         $moreFriends = $fStmt2->fetchAll();
-        $friends = array_merge($friends, $moreFriends);
+        $follows = array_merge($follows, $moreFriends);
     }
 }
 ?>
@@ -364,24 +416,24 @@ if (!$ban) {
     font-size: 12px;
 }
 
-.friend-grid {
+.follow-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 6px;
     padding: 6px;
 }
-.friend-item {
+.follow-item {
     text-align: center;
     font-size: 10px;
 }
-.friend-item a {
+.follow-item a {
     text-decoration: none;
     color: #555;
 }
-.friend-item a:hover {
+.follow-item a:hover {
     color: #0069d6;
 }
-.friend-item img {
+.follow-item img {
     width: 44px;
     height: 44px;
     object-fit: cover;
@@ -459,6 +511,10 @@ if (!$ban) {
     gap: 4px;
     color: #888;
 }
+.post-actions a.btn-like { color: #888; }
+.post-actions a.btn-like.liked { color: rgb(224, 36, 94); }
+.post-actions a.btn-retweet { color: #888; }
+.post-actions a.btn-retweet.retweeted { color: rgb(23, 191, 99); }
 .post-actions a:hover {
     color: #0069d6;
 }
@@ -574,7 +630,7 @@ if (!$ban) {
     .profile-sidebar { width: auto; }
     .profile-banner-wrap { height: 260px; }
     .profile-banner-left { flex-wrap: wrap; }
-    .friend-grid { grid-template-columns: repeat(3, 1fr); }
+    .follow-grid { grid-template-columns: repeat(3, 1fr); }
     .profile-wrap { padding: 0 10px; }
 }
 </style>
@@ -601,10 +657,10 @@ if (!$ban) {
                 <div class="profile-handle">@<?= htmlspecialchars($profile_user['username']) ?></div>
                 <div class="profile-actions-row">
                     <?php if (isset($_SESSION['user_id']) && $_SESSION['user_id'] != $id): ?>
-                        <?php if ($isFollowing): ?>
-                            <a href="/backend/users/unfollow_user.php?id=<?=$id?>&csrf=<?= $csrf ?>" class="btn danger small">Unfollow</a>
+                        <?php if (isFollowing($_SESSION['user_id'], $id)): ?>
+                            <a href="/backend/users/unfollow.php?id=<?=$id?>&csrf=<?= $csrf ?>" class="btn danger small">Unfollow</a>
                         <?php elseif (!$ban): ?>
-                            <a href="/backend/users/follow_user.php?id=<?=$id?>&csrf=<?= $csrf ?>" class="btn success small">+ Follow</a>
+                            <a href="/backend/users/follow.php?id=<?=$id?>&csrf=<?= $csrf ?>" class="btn success small">Follow</a>
                         <?php endif; ?>
                     <?php endif; ?>
                     <?php if (isset($_SESSION['user_id']) && $_SESSION['user_id'] == $id): ?>
@@ -634,24 +690,6 @@ if (!$ban) {
                     <?php endif; ?>
                 </div>
             </div>
-
-            <?php if (!empty($friends)): ?>
-            <div class="profile-module">
-                <h4>Friends</h4>
-                <div class="friend-grid">
-                    <?php foreach ($friends as $f):
-                        $fName = !empty($f['display_name']) ? $f['display_name'] : $f['username'];
-                    ?>
-                        <div class="friend-item">
-                            <a href="/u/<?= $f['id'] ?>">
-                                <img src="/images/avatars/<?= htmlspecialchars($f['avatar'] ?? 'default.png') ?>" alt="">
-                                <?= htmlspecialchars(mb_strimwidth($fName, 0, 10, '...')) ?>
-                            </a>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
         </div>
 
         <div class="profile-main">
@@ -700,6 +738,20 @@ if (!$ban) {
 
                 <div id="post-feed">
                     <?php
+                        $pinnedPost = null;
+                        if ($activeTab == 'posts') {
+                            $pinnedStmt = $pdo->prepare("SELECT p.*, u.username, u.display_name, u.avatar, u.partner, u.admin,
+                                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
+                                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
+                                FROM posts p JOIN users u ON p.user_id = u.id
+                                WHERE p.user_id = ? AND p.pinned = 1 AND p.retweet_of_id IS NULL
+                                LIMIT 1");
+                            $pinnedStmt->execute([$uid, $uid, $id]);
+                            $pinnedPost = $pinnedStmt->fetch(PDO::FETCH_ASSOC);
+                        }
+
                         if ($activeTab == 'replies') {
                             $sql = "SELECT r.*, p.content as post_content, u.username, u.display_name, u.avatar,
                                     (SELECT COUNT(*) FROM likes l WHERE l.post_id = r.post_id) as likes_count,
@@ -710,26 +762,56 @@ if (!$ban) {
                         } elseif ($activeTab == 'media') {
                             $sql = "SELECT p.*, u.username, u.display_name, u.avatar,
                                     (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
-                                    (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked
+                                    (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                                    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                                    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
                                     FROM posts p JOIN users u ON p.user_id = u.id WHERE p.user_id = ? AND (p.image IS NOT NULL AND p.image != '' OR p.video IS NOT NULL AND p.video != '') ORDER BY p.id DESC LIMIT 10";
                             $stmt = $pdo->prepare($sql);
-                            $stmt->execute([$uid, $id]);
+                            $stmt->execute([$uid, $uid, $id]);
                         } elseif ($activeTab == 'likes') {
                             $sql = "SELECT p.*, u.username, u.display_name, u.avatar,
                                     (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
-                                    (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked
+                                    (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                                    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                                    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
                                     FROM posts p JOIN users u ON p.user_id = u.id JOIN likes l ON l.post_id = p.id WHERE l.user_id = ? ORDER BY p.id DESC LIMIT 10";
                             $stmt = $pdo->prepare($sql);
-                            $stmt->execute([$uid, $id]);
+                            $stmt->execute([$uid, $uid, $id]);
                         } else {
-                            $sql = "SELECT p.*, u.username, u.display_name, u.avatar,
+                            if ($pinnedPost) {
+                                echo '<div style="border-bottom:2px solid #1b95e0;">
+                                    <div style="font-size:11px; color:#1b95e0; padding:6px 14px 0;">'.svg_icon('pin', '', 12, 'vertical-align:middle;margin-right:3px').'
+                                        Pinned
+                                    </div>
+                                    '.renderPostItems([$pinnedPost], $activeTab, ($uid == $id)).'
+                                </div>';
+                            }
+
+                            $sql = "SELECT p.*, u.username, u.display_name, u.avatar, u.partner, u.admin,
                                     (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
-                                    (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked
-                                    FROM posts p JOIN users u ON p.user_id = u.id WHERE p.user_id = ? ORDER BY p.id DESC LIMIT 10";
+                                    (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                                    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                                    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted,
+                                    NULL as retweeter_id, NULL as retweeter_username, NULL as retweeter_display_name
+                                    FROM posts p JOIN users u ON p.user_id = u.id
+                                    WHERE p.user_id = ?
+                                    UNION ALL
+                                    SELECT p.*, u.username, u.display_name, u.avatar, u.partner, u.admin,
+                                    (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
+                                    (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                                    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                                    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted,
+                                    r.user_id as retweeter_id, ru.username as retweeter_username, ru.display_name as retweeter_display_name
+                                    FROM retweets r
+                                    JOIN posts p ON p.id = r.post_id
+                                    JOIN users u ON p.user_id = u.id
+                                    JOIN users ru ON r.user_id = ru.id
+                                    WHERE r.user_id = ? AND p.retweet_of_id IS NULL
+                                    ORDER BY id DESC LIMIT 10";
                             $stmt = $pdo->prepare($sql);
-                            $stmt->execute([$uid, $id]);
+                            $stmt->execute([$uid, $uid, $id, $uid, $uid, $id]);
                         }
-                        echo renderPostItems($stmt->fetchAll(), $activeTab);
+                        echo renderPostItems($stmt->fetchAll(), $activeTab, ($uid == $id));
                     ?>
                 </div>
 
@@ -743,6 +825,18 @@ if (!$ban) {
 </div>
 
 <script>
+function votePoll(pollId, optionId, element) {
+    $.post('/backend/posts/poll_vote.php', {
+        poll_id: pollId,
+        option_id: optionId,
+        csrf: '<?= $csrf ?>'
+    }, function(response) {
+        if (response.success) {
+            location.reload();
+        }
+    }, 'json');
+}
+
 $(document).ready(function() {
     <?php if(!$showFollowList): ?>
     var isLoading = false;

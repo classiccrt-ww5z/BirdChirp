@@ -56,16 +56,18 @@ if (isset($_GET['ajax_load_more'])) {
         $query = "SELECT p.*, u.username, u.display_name, u.avatar,
                   (SELECT COUNT(*) FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following,
                   (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes_count,
-                  (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked
+                  (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked,
+                  (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                  (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
                   FROM posts p
                   JOIN users u ON p.user_id = u.id ";
         
         if ($activeTab == "following" && isLoggedIn()) {
             $stmt = $pdo->prepare($query . " JOIN follows f ON p.user_id = f.following_id LEFT JOIN bans b ON p.user_id = b.user_id WHERE f.follower_id = ? AND p.id < ? AND b.user_id IS NULL ORDER BY p.id DESC LIMIT 10");
-            $stmt->execute([$uid, $uid, $uid, $last_id]);
+            $stmt->execute([$uid, $uid, $uid, $uid, $last_id]);
         } else {
             $stmt = $pdo->prepare($query . " LEFT JOIN bans b ON p.user_id = b.user_id WHERE p.id < ? AND b.user_id IS NULL ORDER BY p.id DESC LIMIT 10");
-            $stmt->execute([$uid, $uid, $last_id]);
+            $stmt->execute([$uid, $uid, $uid, $last_id]);
         }
         
         $ajax_posts = $stmt->fetchAll();
@@ -85,19 +87,23 @@ if (isset($_GET['ajax_load_more'])) {
 $base_query = "SELECT p.*, u.username, u.display_name, u.avatar, u.is_verified, u.partner, u.admin,
                (SELECT COUNT(*) FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following,
                (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes_count,
-               (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked
+               (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked,
+               (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+               (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
                FROM posts p 
                JOIN users u ON p.user_id = u.id ";
 
 if ($activeTab == "following" && isLoggedIn()) {
     $stmt = $pdo->prepare($base_query . " JOIN follows f ON p.user_id = f.following_id LEFT JOIN bans b ON p.user_id = b.user_id WHERE f.follower_id = ? AND b.user_id IS NULL ORDER BY p.id DESC LIMIT 10");
-    $stmt->execute([$uid, $uid, $uid]);
+    $stmt->execute([$uid, $uid, $uid, $uid]);
 } elseif ($activeTab == "recommended") {
     $stmt = $pdo->prepare("
         SELECT p.*, u.username, u.display_name, u.avatar, u.is_verified, u.partner, u.admin,
         (SELECT COUNT(*) FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following,
         (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked,
+        (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+        (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted,
         ( (SELECT COUNT(*) FROM likes WHERE post_id = p.id) / 
           (POW(TIMESTAMPDIFF(HOUR, p.created_at, NOW()) + 2, 1.5)) 
         ) as rank_score
@@ -109,10 +115,10 @@ if ($activeTab == "following" && isLoggedIn()) {
         ORDER BY rank_score DESC, p.id DESC 
         LIMIT 10
     ");
-    $stmt->execute([$uid, $uid]);
+    $stmt->execute([$uid, $uid, $uid]);
 } else {
     $stmt = $pdo->prepare($base_query . " LEFT JOIN bans b ON p.user_id = b.user_id WHERE b.user_id IS NULL ORDER BY p.id DESC LIMIT 10");
-    $stmt->execute([$uid, $uid]);
+    $stmt->execute([$uid, $uid, $uid]);
 }
 $posts = $stmt->fetchAll();
 
@@ -145,6 +151,17 @@ if (isLoggedIn()) {
     }
 }
 
+$quotePost = null;
+$quoteId = isset($_GET['quote']) ? intval($_GET['quote']) : 0;
+if ($quoteId > 0) {
+    $qStmt = $pdo->prepare("SELECT p.*, u.username, u.display_name, u.avatar, u.partner, u.admin
+        FROM posts p JOIN users u ON p.user_id = u.id
+        LEFT JOIN bans b ON p.user_id = b.user_id
+        WHERE p.id = ? AND b.user_id IS NULL");
+    $qStmt->execute([$quoteId]);
+    $quotePost = $qStmt->fetch(PDO::FETCH_ASSOC);
+}
+
 require_once $base_path . "header.php";
 ?>
 
@@ -160,7 +177,7 @@ require_once $base_path . "header.php";
 }
 .post-actions a { text-decoration: none; font-size: 12px; display: flex; align-items: center; }
 .post-actions img { width: 16px; height: 16px; margin-right: 8px; }
-#post-form.well { padding: 14px; margin-bottom: 20px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; transition: all 0.2s; }
+#post-form { padding: 14px; margin-bottom: 20px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; transition: all 0.2s; }
 #post-form.dragover { background-color: #e7f2ff !important; border-color: #b3d4ff !important; }
 #post-content { border: 1px solid #ccc; font-family: inherit; font-size: 13px; line-height: 18px; padding: 4px; resize: none; }
 .upload-preview { display: none; position: relative; margin: 10px 0; width: 200px; border: 1px solid #ccc; padding: 2px; background: #fff; }
@@ -203,11 +220,27 @@ require_once $base_path . "header.php";
 
     <div class="row">
         <div class="span10">
-            <form id="post-form" class="well" action="/backend/posts/create_post.php" method="POST">
+            <form id="post-form" action="/backend/posts/create_post.php" method="POST">
                 <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
                 <input type="hidden" name="image" id="post-image" value="">
                 <input type="hidden" name="video" id="post-video" value="">
-                <textarea id="post-content" name="content" class="span9" placeholder="What's happening?" style="height: 60px;"></textarea>
+                <?php if ($quotePost): ?>
+                    <input type="hidden" name="quote_id" value="<?= $quotePost['id'] ?>">
+                    <div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin-bottom:10px; background:#f9f9f9; font-size:13px;">
+                        <strong><a href="/u/<?= $quotePost['user_id'] ?>" style="text-decoration:none;color:inherit;"><?= htmlspecialchars(!empty($quotePost['display_name']) ? $quotePost['display_name'] : $quotePost['username']) ?></a></strong>
+                        <span class="muted">@<?= htmlspecialchars($quotePost['username']) ?></span>
+                        <div style="margin-top:4px;"><?= parsePostContent($quotePost['content']) ?></div>
+                    </div>
+                <?php endif; ?>
+                <textarea id="post-content" name="content" class="span9" placeholder="<?= $quotePost ? 'Add your comment...' : "What's happening?" ?>" style="height: 60px;"></textarea>
+                <div id="poll-section" style="display:none; margin:10px 0; padding:10px; border:1px solid #ddd; border-radius:4px; background:#fff;">
+                    <input type="hidden" name="poll_active" id="poll-active" value="0">
+                    <input type="text" name="poll_question" id="poll-question" placeholder="Ask a question..." style="width:100%; margin-bottom:8px; padding:4px; border:1px solid #ccc;">
+                    <input type="text" name="poll_option_1" placeholder="Option 1" style="width:100%; margin-bottom:4px; padding:4px; border:1px solid #ccc;">
+                    <input type="text" name="poll_option_2" placeholder="Option 2" style="width:100%; margin-bottom:4px; padding:4px; border:1px solid #ccc;">
+                    <input type="text" name="poll_option_3" placeholder="Option 3 (optional)" style="width:100%; margin-bottom:4px; padding:4px; border:1px solid #ccc;">
+                    <input type="text" name="poll_option_4" placeholder="Option 4 (optional)" style="width:100%; margin-bottom:4px; padding:4px; border:1px solid #ccc;">
+                </div>
                 <div id="media-preview" class="upload-preview" style="display:none;">
                     <img id="preview-img" src="">
                     <span class="remove-upload" onclick="clearMedia('image')">x</span>
@@ -227,6 +260,10 @@ require_once $base_path . "header.php";
                 <div style="margin-top:8px;">
                     <input type="file" id="media-input" style="display:none;" accept="image/*,video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska">
                     <img src="/images/misc/image.png" class="image-upload-trigger" title="Add Image or Video" onclick="document.getElementById('media-input').click()">
+                    <a href="javascript:togglePoll()" style="font-size:12px; color:#657786; text-decoration:none; margin-right:8px; vertical-align:middle;">
+                        <?= svg_icon('bar-chart', '', 16, 'vertical-align:middle;margin-right:2px') ?>
+                        Poll
+                    </a>
                     <div class="pull-right">
                         <span id="char-count" style="font-size:12px; color:#666; margin-right:10px;">0 / 2000</span>
                         <button type="submit" id="submit-post" class="btn primary <?= ($remaining_cooldown > 0) ? 'disabled' : '' ?>" <?= ($remaining_cooldown > 0) ? 'disabled' : '' ?>>
@@ -276,9 +313,11 @@ require_once $base_path . "header.php";
                                 <strong><a href="/u/<?=$r_user['id']?>"><?=e(!empty($r_user['display_name']) ? htmlspecialchars($r_user['display_name']) : $r_user['username'])?></a></strong><br>
                                 <span class="muted" style="font-size:11px;">@<?=e($r_user['username'])?></span><br>
                                 <?php if(isLoggedIn()): ?>
-                                    <a href="/backend/users/follow_user.php?id=<?=$r_user['id']?>&csrf=<?= $csrf ?>" class="btn small success" style="margin-top:4px;">Follow</a>
-                                <?php else: ?>
-                                    <a href="/login" class="btn small" style="margin-top:4px;">Follow</a>
+                                    <?php if (isFollowing($uid, $r_user['id'])): ?>
+                                        <a href="/backend/users/unfollow.php?id=<?=$r_user['id']?>&csrf=<?= $csrf ?>" class="btn small" style="margin-top:4px;">Unfollow</a>
+                                    <?php else: ?>
+                                        <a href="/backend/users/follow.php?id=<?=$r_user['id']?>&csrf=<?= $csrf ?>" class="btn small success" style="margin-top:4px;">Follow</a>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </li>
@@ -508,6 +547,24 @@ function loadMorePosts() {
             $('#feed-loader').hide();
         }
     });
+}
+
+function togglePoll() {
+    var $section = $('#poll-section');
+    $section.toggle();
+    $('#poll-active').val($section.is(':visible') ? '1' : '0');
+}
+
+function votePoll(pollId, optionId, element) {
+    $.post('/backend/posts/poll_vote.php', {
+        poll_id: pollId,
+        option_id: optionId,
+        csrf: '<?= $csrf ?>'
+    }, function(response) {
+        if (response.success) {
+            location.reload();
+        }
+    }, 'json');
 }
 
 $(document).ready(function() {

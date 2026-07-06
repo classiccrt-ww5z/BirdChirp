@@ -8,10 +8,10 @@
     <div class="span9">
         <div style="float:right;">
             <?php if ($post['user_id'] != $uid): ?>
-                <?php if ($post['is_following']): ?>
-                    <a href="/backend/users/unfollow_user.php?id=<?= $post['user_id'] ?>" class="btn small">Unfollow</a>
+                <?php if (isFollowing($uid, $post['user_id'])): ?>
+                    <a href="/backend/users/unfollow.php?id=<?= $post['user_id'] ?>&csrf=<?= $csrf ?>" class="btn small">Unfollow</a>
                 <?php else: ?>
-                    <a href="/backend/users/follow_user.php?id=<?= $post['user_id'] ?>" class="btn small success">Follow</a>
+                    <a href="/backend/users/follow.php?id=<?= $post['user_id'] ?>&csrf=<?= $csrf ?>" class="btn small success">Follow</a>
                 <?php endif; ?>
             <?php endif; ?>
         </div>

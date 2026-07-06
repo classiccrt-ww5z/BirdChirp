@@ -76,7 +76,7 @@ code{background:#f8f8f8;padding:4px 8px;border:1px solid #ccc;font-size:15px;dis
 <nav class="navbar navbar-inverse" style="margin-bottom:0;border-radius:0;min-height:40px">
   <div class="container-fluid">
     <div class="navbar-header">
-      <a class="navbar-brand" href="index.php" style="padding:10px 15px;font-size:15px;height:40px">BirdChirp Admin</a>
+      <a class="navbar-brand" href="index.php" style="padding:10px 15px;font-size:15px;height:40px"><?php echo $SITE_NAME; ?> Admin</a>
     </div>
     <ul class="nav navbar-nav navbar-right">
       <li><a href="/"><span class="glyphicon glyphicon-home"></span> View Site</a></li>

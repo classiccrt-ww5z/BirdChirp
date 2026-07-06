@@ -12,7 +12,7 @@ if (isset($_GET['token'])) {
     if ($user) {
         $update = $pdo->prepare("UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?");
         $update->execute([$user['id']]);
-        $_SESSION['message'] = "Your email has been verified! Welcome to BirdChirp.";
+        $_SESSION['message'] = "Your email has been verified! Welcome to $SITE_NAME.";
         $_SESSION['message_type'] = "success";
     } else {
         $_SESSION['message'] = "That link is invalid or has already been used.";
@@ -50,13 +50,14 @@ if (isset($_POST['ajax_resend']) && isset($_SESSION['user_id'])) {
             exit;
         }
         $url = 'https://send.api.mailtrap.io/api/send';
-        $verificationLink = "http://birdchirp.org/verify.php?token=" . $newToken;
+        $host = $_SERVER['HTTP_HOST'];
+        $verificationLink = "http://$host/verify.php?token=" . $newToken;
 
         $data = [
-            'from' => ['email' => 'verify@birdchirp.org', 'name' => 'BirdChirp'],
+            'from' => ['email' => 'verify@' . $_SERVER['HTTP_HOST'], 'name' => $SITE_NAME],
             'to' => [['email' => $newEmail]],
             'subject' => 'Verify Your Email',
-            'html' => "<h1>Verify BirdChirp</h1><p>Click here to verify: <a href='$verificationLink'>$verificationLink</a></p>"
+            'html' => "<h1>Verify $SITE_NAME</h1><p>Click here to verify: <a href='$verificationLink'>$verificationLink</a></p>"
         ];
 
         $ch = curl_init($url);
@@ -87,7 +88,7 @@ if (isset($_SESSION['user_id'])) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Verify Your Account | BirdChirp</title>
+    <title>Verify Your Account | <?php echo $SITE_NAME; ?></title>
     <link rel="stylesheet" href="/css/bootstrap.css">
     <style>
         body { 
@@ -112,7 +113,7 @@ if (isset($_SESSION['user_id'])) {
 <div class="container">
     <div class="container-box">
         <div class="logo-box">
-            <img src="/images/logos/birdchirpold.png" height="45" alt="BirdChirp">
+            <img src="/images/logos/birdchirpold.png" height="45" alt="<?php echo $SITE_NAME; ?>">
         </div>
 
         <div id="js-message">

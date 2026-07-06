@@ -24,7 +24,7 @@ if ($is_logged_in && !$already_applied && $_SERVER["REQUEST_METHOD"] == "POST") 
                 "title" => "Application Details",
                 "color" => 5814783,
                 "fields" => [
-                    ["name" => "BirdChirp User", "value" => $current_site_user, "inline" => true],
+                    ["name" => "$SITE_NAME User", "value" => $current_site_user, "inline" => true],
                     ["name" => "Discord Tag", "value" => $discord_tag, "inline" => true],
                     ["name" => "Email Address", "value" => $email, "inline" => false],
                     ["name" => "Age", "value" => $age, "inline" => true],
@@ -83,7 +83,7 @@ if ($is_logged_in && !$already_applied && $_SERVER["REQUEST_METHOD"] == "POST") 
             <form method="POST" action="" id="appForm">
                 <fieldset>
                     <div class="clearfix">
-                        <label>BirdChirp User</label>
+                        <label><?php echo $SITE_NAME; ?> User</label>
                         <div class="input">
                             <input class="xlarge disabled" type="text" value="<?php echo $current_site_user; ?>" disabled>
                         </div>

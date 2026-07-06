@@ -4,7 +4,7 @@
     <h1>Frequently Asked Questions</h1>
     <hr>
     <div class="faq-item">
-        <p><b>Q: why did you decide to make birdchirp?  </b></p>
+        <p><b>Q: why did you decide to make <?php echo $SITE_NAME; ?>?  </b></p>
         <p>A: because i wanted to.</p>
     </div>
 </div>

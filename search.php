@@ -1,11 +1,21 @@
 <?php
 require_once "database/config.php";
 require_once "functions/posts.php";
+require_once "functions/users.php";
 
 $query = isset($_GET['q']) ? trim($_GET['q']) : '';
 $uid = $_SESSION['user_id'] ?? 0;
 $type = isset($_GET['type']) ? $_GET['type'] : 'default'; 
 $date = isset($_GET['date']) ? htmlspecialchars($_GET['date'], ENT_QUOTES, 'UTF-8') : '';
+require_once 'functions/security.php';
+$csrf = generateCSRF();
+require_once 'functions/icons.php';
+
+$svgReply = svg_icon('chat', '', 16, 'vertical-align:middle;margin-right:4px');
+$svgRetweet = svg_icon('loop-circular', '', 16, 'vertical-align:middle;margin-right:4px');
+$svgQuote = svg_icon('double-quote-sans-left', '', 14, 'vertical-align:middle;margin-right:4px');
+$svgHeart = svg_icon('heart', 'heart-svg', 16, 'vertical-align:middle;margin-right:4px');
+
 if (isset($_GET['ajax_search_more'])) {
     if (ob_get_length()) ob_clean();
     $last_id = isset($_GET['last_id']) ? intval($_GET['last_id']) : 0;
@@ -14,14 +24,16 @@ if (isset($_GET['ajax_search_more'])) {
         $sql = "SELECT p.*, u.username, u.display_name, u.avatar, u.is_verified, u.partner, u.admin,
                 (SELECT COUNT(*) FROM follows f WHERE f.follower_id = ? AND f.following_id = p.user_id) as is_following,
                 (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
-                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked
+                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
                 FROM posts p 
                 JOIN users u ON p.user_id = u.id 
                 LEFT JOIN bans b ON p.user_id = b.user_id
                 WHERE p.content LIKE ? AND p.id < ? AND b.user_id IS NULL";
         
         $likeQuery = "%" . addcslashes($query, '%_') . "%";
-        $params = [$uid, $uid, $likeQuery, $last_id];
+        $params = [$uid, $uid, $uid, $likeQuery, $last_id];
         if (!empty($date)) { 
             $sql .= " AND DATE(p.created_at) = ?"; 
             $params[] = $date; 
@@ -42,10 +54,10 @@ if (isset($_GET['ajax_search_more'])) {
                 
                 $followBtn = '';
                 if ($post['user_id'] != $uid) {
-                    if ($post['is_following']) {
-                        $followBtn = '<a href="/backend/users/unfollow_user.php?id='.$post['user_id'].'&csrf='.$csrf.'" class="btn small">Unfollow</a>';
+                    if (isFollowing($uid, $post['user_id'])) {
+                        $followBtn = '<a href="/backend/users/unfollow.php?id='.$post['user_id'].'&csrf='.$csrf.'" class="btn small">Unfollow</a>';
                     } else {
-                        $followBtn = '<a href="/backend/users/follow_user.php?id='.$post['user_id'].'&csrf='.$csrf.'" class="btn small success">Follow</a>';
+                        $followBtn = '<a href="/backend/users/follow.php?id='.$post['user_id'].'&csrf='.$csrf.'" class="btn small success">Follow</a>';
                     }
                 }
 
@@ -53,8 +65,29 @@ if (isset($_GET['ajax_search_more'])) {
                 
                 $hasLiked = $post['has_liked'] ?? false;
                 $likesCount = $post['likes_count'] ?? 0;
-                $likeStyle = $hasLiked ? 'color:rgb(5, 190, 5); font-weight: bold;' : 'color: #657786;';
-                $likeOpacity = $hasLiked ? '1' : '0.6';
+                $hasRetweeted = $post['has_retweeted'] ?? false;
+                $retweetCount = $post['retweet_count'] ?? 0;
+                $retweetBtnClass = $hasRetweeted ? 'btn-retweet retweeted' : 'btn-retweet';
+                $likeBtnClass = $hasLiked ? 'btn-like liked' : 'btn-like';
+
+                $quotedHtml = '';
+                if (!empty($post['retweet_of_id'])) {
+                    $qStmt2 = $pdo->prepare("SELECT p.*, u.username, u.display_name, u.avatar FROM posts p JOIN users u ON p.user_id = u.id LEFT JOIN bans b ON p.user_id = b.user_id WHERE p.id = ? AND b.user_id IS NULL");
+                    $qStmt2->execute([$post['retweet_of_id']]);
+                    $quotedPost2 = $qStmt2->fetch(PDO::FETCH_ASSOC);
+                    if ($quotedPost2) {
+                        $quotedHtml = '<div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin-top:10px; background:#f9f9f9;">';
+                        $quotedHtml .= '<div style="margin-bottom:4px;"><strong><a href="/u/'.$quotedPost2['user_id'].'" style="text-decoration:none;color:inherit;">'.htmlspecialchars(!empty($quotedPost2['display_name'])?$quotedPost2['display_name']:$quotedPost2['username']).'</a></strong> <span class="muted" style="font-size:12px;">@'.htmlspecialchars($quotedPost2['username']).'</span></div>';
+                        $quotedHtml .= '<div style="font-size:13px;word-wrap:break-word;">'.parsePostContent($quotedPost2['content']).'</div>';
+                        if (!empty($quotedPost2['image'])) {
+                            $quotedHtml .= '<img src="/images/posts/'.htmlspecialchars($quotedPost2['image'], ENT_QUOTES, 'UTF-8').'" style="max-width:100%;max-height:200px;margin-top:6px;border-radius:4px;">';
+                        }
+                        if (!empty($quotedPost2['video'])) {
+                            $quotedHtml .= '<video controls style="max-width:100%;max-height:200px;margin-top:6px;border-radius:4px;" preload="metadata"><source src="/videos/posts/'.htmlspecialchars($quotedPost2['video'], ENT_QUOTES, 'UTF-8').'" type="video/mp4"></video>';
+                        }
+                        $quotedHtml .= '</div>';
+                    }
+                }
 
                 echo <<<HTML
                 <div class="row post" style="margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:15px;" data-id="{$post['id']}">
@@ -73,14 +106,23 @@ if (isset($_GET['ajax_search_more'])) {
                             <div class="post-content" style="margin-top:5px; word-wrap: break-word;">{$content}</div>
                             {$imageHtml}
                         </a>
+                        {$quotedHtml}
                         <div class="post-actions" style="margin-top: 10px; display: flex; gap: 50px; padding-bottom: 5px;">
-                            <a href="/post/{$post['id']}#reply-area" style="color:#657786;">
-                                <img src="/images/misc/reply.png" style="opacity:0.6"> 
+                            <a href="/post/{$post['id']}#reply-area" style="color:#657786; font-size:12px; display:flex; align-items:center;">
+                                {$svgReply}
                                 <span>Reply</span>
                             </a>
-                            <a href="/backend/posts/like_post.php?id={$post['id']}&csrf={$csrf}" style="{$likeStyle}">
-                                <img src="/images/misc/likes.png" style="opacity: {$likeOpacity}"> 
-                                <span>{$likesCount}</span>
+                            <a href="/backend/posts/retweet.php?id={$post['id']}&csrf={$csrf}" class="{$retweetBtnClass}" data-post-id="{$post['id']}">
+                                {$svgRetweet}
+                                <span class="count">{$retweetCount}</span>
+                            </a>
+                            <a href="/?quote={$post['id']}" style="color:#657786;">
+                                {$svgQuote}
+                                <span>Quote</span>
+                            </a>
+                            <a href="/backend/posts/like_post.php?id={$post['id']}&csrf={$csrf}" class="{$likeBtnClass}" data-post-id="{$post['id']}">
+                                {$svgHeart}
+                                <span class="count">{$likesCount}</span>
                             </a>
                         </div>
                     </div>
@@ -114,13 +156,15 @@ $posts = []; $users = [];
         $sql = "SELECT p.*, u.username, u.display_name, u.avatar, u.is_verified, u.partner, u.admin,
                 (SELECT COUNT(*) FROM follows f WHERE f.follower_id = ? AND f.following_id = p.user_id) as is_following,
                 (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as likes_count,
-                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked
+                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) as has_liked,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+                (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
                 FROM posts p 
                 JOIN users u ON p.user_id = u.id 
                 LEFT JOIN bans b ON p.user_id = b.user_id
                 WHERE p.content LIKE ? AND b.user_id IS NULL";
         
-        $params = [$uid, $uid, $likeQuery];
+        $params = [$uid, $uid, $uid, $likeQuery];
         if (!empty($date)) { $sql .= " AND DATE(p.created_at) = ?"; $params[] = $date; }
         
         $sql .= " ORDER BY p.id DESC LIMIT 10";
@@ -149,6 +193,10 @@ $trending_tags = array_slice($tags_found, 0, 8);
     .post:hover { background-color: #f9f9f9; }
     .post-actions { margin-top: 10px; display: flex; gap: 50px; padding-bottom: 5px; }
     .post-actions a { text-decoration: none; font-size: 12px; display: flex; align-items: center; }
+    .post-actions a.btn-like { color: #657786; }
+    .post-actions a.btn-like.liked { color: rgb(224, 36, 94); }
+    .post-actions a.btn-retweet { color: #657786; }
+    .post-actions a.btn-retweet.retweeted { color: rgb(23, 191, 99); }
     .post-actions img { width: 16px; height: 16px; margin-right: 8px; }
     #loading-indicator { text-align: center; padding: 20px; display: none; }
 </style>

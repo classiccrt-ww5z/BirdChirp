@@ -2,6 +2,7 @@
 
 require_once '../../database/config.php';
 require_once '../../functions/auth.php';
+require_once '../../functions/posts.php';
 require_once '../../functions/notifications.php';
 require_once '../../functions/security.php';
 requireLogin();
@@ -21,26 +22,26 @@ if (!verifyCSRF($token)) {
 
 $post_id = intval($_GET['id']);
 $user_id = $_SESSION['user_id'];
-$liked = false;
+$retweeted = false;
 
 if ($post_id > 0) {
-    $check = $pdo->prepare("SELECT 1 FROM likes WHERE user_id = ? AND post_id = ?");
+    $check = $pdo->prepare("SELECT 1 FROM retweets WHERE user_id = ? AND post_id = ?");
     $check->execute([$user_id, $post_id]);
-    
+
     if ($check->fetch()) {
-        $stmt = $pdo->prepare("DELETE FROM likes WHERE user_id = ? AND post_id = ?");
+        $stmt = $pdo->prepare("DELETE FROM retweets WHERE user_id = ? AND post_id = ?");
         $stmt->execute([$user_id, $post_id]);
-        $liked = false;
+        $retweeted = false;
     } else {
-        $stmt = $pdo->prepare("INSERT INTO likes (user_id, post_id) VALUES (?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO retweets (user_id, post_id) VALUES (?, ?)");
         $stmt->execute([$user_id, $post_id]);
-        notifyOnLike($post_id, $user_id);
-        $liked = true;
+        notifyOnRetweet($post_id, $user_id);
+        $retweeted = true;
     }
 }
 
-$countStmt = $pdo->prepare("SELECT COUNT(*) FROM likes WHERE post_id = ?");
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM retweets WHERE post_id = ?");
 $countStmt->execute([$post_id]);
 $count = intval($countStmt->fetchColumn());
 
-echo json_encode(['success' => true, 'liked' => $liked, 'count' => $count]);
+echo json_encode(['success' => true, 'retweeted' => $retweeted, 'count' => $count]);

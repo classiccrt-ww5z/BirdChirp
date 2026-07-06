@@ -5,7 +5,7 @@ require_once "functions/users.php";
 require_once "functions/security.php";
 
 $user = getUserById($_SESSION['user_id']);
-$tab = $_GET['tab'] ?? 'profile';
+$section = $_GET['section'] ?? 'overview';
 
 $bio = htmlspecialchars($user['bio'] ?? '');
 $email = htmlspecialchars($user['email'] ?? '');
@@ -16,75 +16,290 @@ $avatar = $user['avatar'] ?? 'default.png';
 $csrfToken = generateCSRF();
 ?>
 
+
+
 <div class="container">
 <div class="page-header">
 <h1>Settings</h1>
 </div>
 
-<div class="tabbable">
 <ul class="tabs">
-<li class="<?= $tab == 'profile' ? 'active' : '' ?>"><a href="settings.php?tab=profile">Edit Profile</a></li>
-<li class="<?= $tab == 'pfp' ? 'active' : '' ?>"><a href="settings.php?tab=pfp">Profile Picture</a></li>
-<li class="<?= $tab == 'banner' ? 'active' : '' ?>"><a href="settings.php?tab=banner">Profile Banner</a></li>
-<li class="<?= $tab == 'css' ? 'active' : '' ?>"><a href="settings.php?tab=css">Custom CSS</a></li>
-<li class="<?= $tab == 'security' ? 'active' : '' ?>"><a href="settings.php?tab=security">Account Security</a></li>
+    <li class="<?= $section == 'overview' ? 'active' : '' ?>"><a href="?section=overview">Account Overview</a></li>
+    <li class="<?= $section == 'profile' ? 'active' : '' ?>"><a href="?section=profile">Edit Profile</a></li>
+    <li class="<?= $section == 'security' ? 'active' : '' ?>"><a href="?section=security">Account Security</a></li>
+    <li class="<?= $section == 'export' ? 'active' : '' ?>"><a href="?section=export">Export Data</a></li>
 </ul>
+
+        <?php if($section == 'overview'): ?>
+
+            <h3>Account Overview</h3>
+            <table class="bordered-table zebra-striped">
+                <thead><tr><th style="width:150px;">Field</th><th>Value</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Username</strong></td><td><?= $username ?></td></tr>
+                    <tr><td><strong>Email</strong></td><td><?= $email ?></td></tr>
+                    <tr><td><strong>Display Name</strong></td><td><?= $display_name ?></td></tr>
+                    <tr><td><strong>Bio</strong></td><td><?= nl2br($bio) ?></td></tr>
+                    <tr><td><strong>Avatar</strong></td><td><img src="/images/avatars/<?= htmlspecialchars($avatar) ?>" style="width:64px;height:64px;border:1px solid #ccc;padding:2px;"></td></tr>
+                </tbody>
+            </table>
+
+        <?php elseif($section == 'profile'): ?>
+
+            <h3>Edit Profile</h3>
+
+            <form action="/backend/users/update_profile.php" method="POST" class="form-stacked">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+            <fieldset>
+            <legend>Profile Info</legend>
+            <div class="clearfix">
+            <label>Display Name</label>
+            <div class="input">
+            <input type="text" class="xlarge" name="display_name" value="<?= $display_name ?>">
+            </div>
+            </div>
+            <div class="clearfix">
+            <label>Bio</label>
+            <div class="input">
+            <textarea class="xxlarge" name="bio" rows="4"><?= $bio ?></textarea>
+            </div>
+            </div>
+            </fieldset>
+            <button type="submit" class="btn primary">Save Profile</button>
+            </form>
+
+            <hr>
+
+            <fieldset>
+            <legend>Profile Picture</legend>
+            <div class="clearfix">
+            <label>Current</label>
+            <div class="input">
+            <img src="/images/avatars/<?= htmlspecialchars($avatar) ?>" id="current-avatar" style="width:160px;height:160px;border:1px solid #ccc;padding:2px;">
+            </div>
+            </div>
+
+            <div id="preview-section" style="display:none;">
+            <img id="preview-pfp" style="width:160px;height:160px;border:1px solid #ccc;padding:2px;">
+            <br>
+            <button type="button" class="btn success" onclick="savePfp()">Save Avatar</button>
+            <button type="button" class="btn" onclick="cancelPfp()">Cancel</button>
+            </div>
+
+            <div class="clearfix" style="margin-top:10px;">
+            <label>Upload New</label>
+            <div class="input">
+            <input type="file" id="avatar-input" name="avatar" accept="image/*">
+            </div>
+            </div>
+            </fieldset>
+
+            <hr>
+
+            <fieldset>
+            <legend>Profile Banner</legend>
+            <div class="clearfix">
+            <label>Current</label>
+            <div class="input">
+            <img src="/images/banners/<?= htmlspecialchars($user['banner'] ?? 'default.png') ?>" id="current-banner" style="width:500px;height:150px;border:1px solid #ccc;padding:2px;object-fit:cover;">
+            </div>
+            </div>
+
+            <div id="banner-preview-section" style="display:none;">
+            <img id="preview-banner" style="width:500px;height:150px;border:1px solid #ccc;padding:2px;object-fit:cover;">
+            <br><br>
+            <button type="button" class="btn success" onclick="saveBanner()">Save Banner</button>
+            <button type="button" class="btn" onclick="cancelBanner()">Cancel</button>
+            </div>
+
+            <div class="clearfix" style="margin-top:10px;">
+            <label>Upload New</label>
+            <div class="input">
+            <input type="file" id="banner-input" name="banner" accept="image/*">
+            </div>
+            </div>
+            </fieldset>
+
+            <hr>
+
+            <form action="/backend/users/update_css.php" method="POST" class="form-stacked">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+            <fieldset>
+            <legend>Custom Profile CSS</legend>
+            <div style="margin-bottom:8px;">
+                <button type="button" class="btn small" id="btn-easy" onclick="showPanel('easy')">Easy Mode</button>
+                <button type="button" class="btn small" id="btn-tips" onclick="showPanel('tips')">Examples</button>
+                <a href="/tutorial.php" class="btn small">Tutorial</a>
+            </div>
+            <div class="clearfix">
+            <label>Your CSS</label>
+            <div class="input">
+            <textarea class="xxlarge" name="custom_css" rows="12" style="font-family:monospace;font-size:12px;width:500px;" id="css-input"><?= htmlspecialchars($user['custom_css'] ?? '') ?></textarea>
+
+            <div id="panel-tips" style="display:none;margin-top:10px;font-size:13px;line-height:1.8;background:#f5f5f5;padding:14px;border:1px solid #ddd;">
+                <div style="margin-bottom:12px;font-weight:600;">Click any example to load it into the editor above:</div>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;">
+                    <code>body { background: #f0e6d3 !important; }</code>
+                    <button type="button" class="btn small" onclick="fillCss('body { background: #f0e6d3 !important; }')">Load</button>
+                    <code>.profile-banner-wrap { height: 400px; }</code>
+                    <button type="button" class="btn small" onclick="fillCss('.profile-banner-wrap { height: 400px; }')">Load</button>
+                    <code>.profile-avatar img { border-radius: 50%; border-color: red; }</code>
+                    <button type="button" class="btn small" onclick="fillCss('.profile-avatar img { border-radius: 50%; border-color: red; }')">Load</button>
+                    <code>.profile-banner-info h1 { color: #ff0; font-size: 30px; }</code>
+                    <button type="button" class="btn small" onclick="fillCss('.profile-banner-info h1 { color: #ff0; font-size: 30px; }')">Load</button>
+                    <code>.profile-module { background: #faf3e0; border-color: #d4a574; }</code>
+                    <button type="button" class="btn small" onclick="fillCss('.profile-module { background: #faf3e0; border-color: #d4a574; }')">Load</button>
+                    <code>.tabs li a { background: #eee; color: #333; }</code>
+                    <button type="button" class="btn small" onclick="fillCss('.tabs li a { background: #eee; color: #333; }')">Load</button>
+                    <code>.post-item { border-color: #ccc !important; }</code>
+                    <button type="button" class="btn small" onclick="fillCss('.post-item { border-color: #ccc !important; }')">Load</button>
+                    <code>.post-actions a { color: #888; }</code>
+                    <button type="button" class="btn small" onclick="fillCss('.post-actions a { color: #888; }')">Load</button>
+                    <code>.btn { background: #333; color: #fff; }</code>
+                    <button type="button" class="btn small" onclick="fillCss('.btn { background: #333; color: #fff; }')">Load</button>
+                </div>
+                <div style="margin-top:12px;padding-top:10px;border-top:1px solid #ddd;font-size:12px;color:#888;">
+                    Tip: Use your browser's inspector (F12) to find more class names. Add <code>!important</code> if a rule isnt sticking.
+                </div>
+            </div>
+
+            <div id="panel-easy" style="display:none;margin-top:10px;font-size:13px;background:#f5f5f5;padding:14px;border:1px solid #ddd;">
+                <div style="margin-bottom:10px;font-weight:600;">Pick options and hit Generate - no CSS knowledge needed!</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Theme preset</label>
+                        <select id="easy-theme" style="width:100%;" onchange="applyThemePreset()">
+                            <option value="">Custom</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                            <option value="warm">Warm</option>
+                            <option value="ocean">Ocean</option>
+                            <option value="forest">Forest</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Page background</label>
+                        <input type="color" id="easy-bg" value="#ffffff" style="width:100%;height:30px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Name color</label>
+                        <input type="color" id="easy-name-color" value="#333333" style="width:100%;height:30px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Name font</label>
+                        <select id="easy-font" style="width:100%;">
+                            <option value="">Default</option>
+                            <option value="Georgia, serif">Serif</option>
+                            <option value="Courier New, monospace">Monospace</option>
+                            <option value="Comic Sans MS, cursive">Fun</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Sidebar background</label>
+                        <input type="color" id="easy-sidebar" value="#ffffff" style="width:100%;height:30px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Tab background</label>
+                        <input type="color" id="easy-tab-bg" value="#f5f5f5" style="width:100%;height:30px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Banner height</label>
+                        <select id="easy-banner-height" style="width:100%;">
+                            <option value="260">Short (260px)</option>
+                            <option value="320" selected>Medium (320px)</option>
+                            <option value="400">Tall (400px)</option>
+                            <option value="500">Full (500px)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">PFP shape</label>
+                        <select id="easy-pfp" style="width:100%;">
+                            <option value="">Square</option>
+                            <option value="50%">Circle</option>
+                            <option value="12px">Rounded</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Post border</label>
+                        <input type="color" id="easy-post-border" value="#eeeeee" style="width:100%;height:30px;">
+                    </div>
+                    <div style="display:flex;align-items:flex-end;">
+                        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer;">
+                            <input type="checkbox" id="easy-round-banner" checked>
+                            Keep banner gradient overlay
+                        </label>
+                    </div>
+                </div>
+                <button type="button" class="btn primary" style="margin-top:12px;" onclick="generateEasyCss()">Generate CSS</button>
+            </div>
+            </div>
+            </fieldset>
+            <button type="submit" class="btn primary">Save CSS</button>
+            </form>
+
+        <?php elseif($section == 'security'): ?>
+
+            <h3>Account Security</h3>
+
+            <form action="/backend/users/update_security.php" method="POST" class="form-stacked">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+            <fieldset>
+            <legend>Account Info</legend>
+            <div class="clearfix">
+            <label>Email Address</label>
+            <div class="input">
+            <input type="text" class="xlarge" value="<?= $email ?>" disabled>
+            </div>
+            </div>
+            <div class="clearfix">
+            <label>Username</label>
+            <div class="input">
+            <input type="text" class="xlarge" name="username" value="<?= $username ?>">
+            </div>
+            </div>
+            </fieldset>
+            <div class="actions"><button type="submit" class="btn primary">Save Changes</button></div>
+            </form>
+
+            <hr>
+
+            <form action="/backend/users/update_password.php" method="POST" class="form-stacked">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+            <fieldset>
+            <legend>Change Password</legend>
+            <div class="clearfix">
+            <label>Current Password</label>
+            <div class="input">
+            <input type="password" class="xlarge" name="current_password">
+            </div>
+            </div>
+            <div class="clearfix">
+            <label>New Password</label>
+            <div class="input">
+            <input type="password" class="xlarge" name="new_password">
+            </div>
+            </div>
+            <div class="clearfix">
+            <label>Confirm Password</label>
+            <div class="input">
+            <input type="password" class="xlarge" name="confirm_password">
+            </div>
+            </div>
+            </fieldset>
+            <div class="actions"><button type="submit" class="btn primary">Update Password</button></div>
+            </form>
+
+        <?php elseif($section == 'export'): ?>
+
+            <h3>Export Data</h3>
+            <p>Download a JSON file containing your posts, likes, followers, and more.</p>
+            <a href="/export.php?download=1&csrf=<?= $csrfToken ?>" class="btn primary large">Download Your Data</a>
+
+        <?php endif; ?>
+
+        <?php showMessage(); ?>
 </div>
 
-<?php if($tab == 'profile'): ?>
-<form action="/backend/users/update_profile.php" method="POST" class="form-stacked">
-<input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-<fieldset>
-<legend>Profile Editing</legend>
-<div class="clearfix">
-<label>Display Name</label>
-<div class="input">
-<input type="text" class="xlarge" name="display_name" value="<?= $display_name ?>">
-</div>
-</div>
-<div class="clearfix">
-<label>Bio</label>
-<div class="input">
-<textarea class="xxlarge" name="bio" rows="4"><?= $bio ?></textarea>
-</div>
-</div>
-</fieldset>
-<button type="submit" class="btn primary">Save Profile</button>
-</div>
-</form>
-<?php endif; ?>
-
-<?php if($tab == 'pfp'): ?>
-<form class="form-stacked">
-<fieldset>
-<legend>Profile Picture</legend>
-<div class="clearfix">
-<label>Current</label>
-<div class="input">
-<img src="/images/avatars/<?= htmlspecialchars($avatar) ?>" class="thumbnail" id="current-avatar" style="width:160px;height:160px;">
-</div>
-</div>
-</fieldset>
-</form>
-
-<div id="preview-section" style="display:none;">
-<img id="preview-pfp" class="thumbnail" style="width:160px;height:160px;">
-<br>
-<button type="button" class="btn success" onclick="savePfp()">Save Avatar</button>
-<button type="button" class="btn" onclick="cancelPfp()">Cancel</button>
-</div>
-
-<form class="form-stacked" style="margin-top:20px;">
-<fieldset>
-<legend>Upload New</legend>
-<div class="clearfix">
-<label>Select Image</label>
-<div class="input">
-<input type="file" id="avatar-input" name="avatar" accept="image/*">
-</div>
-</div>
-</fieldset>
-</form>
 <script>
 var csrfToken = '<?= $csrfToken ?>';
 
@@ -138,42 +353,6 @@ function savePfp(){
 function cancelPfp(){
     fetch('/backend/users/cancel_avatar.php?ajax=1').then(function(){location.reload();});
 }
-</script>
-<?php endif; ?>
-
-<?php if($tab == 'banner'): ?>
-<form class="form-stacked">
-<fieldset>
-<legend>Profile Banner</legend>
-<div class="clearfix">
-<label>Current</label>
-<div class="input">
-<img src="/images/banners/<?= htmlspecialchars($user['banner'] ?? 'default.png') ?>" class="thumbnail" id="current-banner" style="width:500px;height:150px;object-fit:cover;">
-</div>
-</div>
-</fieldset>
-</form>
-
-<div id="banner-preview-section" style="display:none;">
-<img id="preview-banner" class="thumbnail" style="width:500px;height:150px;object-fit:cover;">
-<br><br>
-<button type="button" class="btn success" onclick="saveBanner()">Save Banner</button>
-<button type="button" class="btn" onclick="cancelBanner()">Cancel</button>
-</div>
-
-<form class="form-stacked" style="margin-top:20px;">
-<fieldset>
-<legend>Upload New</legend>
-<div class="clearfix">
-<label>Select Image</label>
-<div class="input">
-<input type="file" id="banner-input" name="banner" accept="image/*">
-</div>
-</div>
-</fieldset>
-</form>
-<script>
-var csrfToken = '<?= $csrfToken ?>';
 
 document.getElementById('banner-input').addEventListener('change',function(){
     var file=this.files[0];
@@ -225,125 +404,7 @@ function saveBanner(){
 function cancelBanner(){
     fetch('/backend/users/cancel_banner.php?ajax=1').then(function(){location.reload();});
 }
-</script>
-<?php endif; ?>
 
-<?php if($tab == 'css'): ?>
-<form action="/backend/users/update_css.php" method="POST" class="form-stacked">
-<input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-<fieldset>
-<legend>Custom Profile CSS</legend>
-<div style="margin-bottom:8px;">
-    <button type="button" class="btn small" id="btn-easy" onclick="showPanel('easy')">Easy Mode</button>
-    <button type="button" class="btn small" id="btn-tips" onclick="showPanel('tips')">Examples</button>
-    <a href="/tutorial.php" class="btn small">Tutorial</a>
-</div>
-<div class="clearfix">
-<label>Your CSS</label>
-<div class="input">
-<textarea class="xxlarge" name="custom_css" rows="12" style="font-family:monospace;font-size:12px;width:500px;" id="css-input"><?= htmlspecialchars($user['custom_css'] ?? '') ?></textarea>
-
-<div id="panel-tips" style="display:none;margin-top:10px;font-size:13px;line-height:1.8;background:#f9f9f9;padding:14px;border-radius:4px;border:1px solid #ddd;">
-    <div style="margin-bottom:12px;font-weight:600;">Click any example to load it into the editor above:</div>
-    <div style="display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;">
-        <code>body { background: #f0e6d3 !important; }</code>
-        <button type="button" class="btn small" onclick="fillCss('body { background: #f0e6d3 !important; }')">Load</button>
-        <code>.profile-banner-wrap { height: 400px; }</code>
-        <button type="button" class="btn small" onclick="fillCss('.profile-banner-wrap { height: 400px; }')">Load</button>
-        <code>.profile-avatar img { border-radius: 50%; border-color: red; }</code>
-        <button type="button" class="btn small" onclick="fillCss('.profile-avatar img { border-radius: 50%; border-color: red; }')">Load</button>
-        <code>.profile-banner-info h1 { color: #ff0; font-size: 30px; }</code>
-        <button type="button" class="btn small" onclick="fillCss('.profile-banner-info h1 { color: #ff0; font-size: 30px; }')">Load</button>
-        <code>.profile-module { background: #faf3e0; border-color: #d4a574; }</code>
-        <button type="button" class="btn small" onclick="fillCss('.profile-module { background: #faf3e0; border-color: #d4a574; }')">Load</button>
-        <code>.tabs li a { background: #eee; color: #333; }</code>
-        <button type="button" class="btn small" onclick="fillCss('.tabs li a { background: #eee; color: #333; }')">Load</button>
-        <code>.post-item { border-color: #ccc !important; }</code>
-        <button type="button" class="btn small" onclick="fillCss('.post-item { border-color: #ccc !important; }')">Load</button>
-        <code>.post-actions a { color: #888; }</code>
-        <button type="button" class="btn small" onclick="fillCss('.post-actions a { color: #888; }')">Load</button>
-        <code>.btn { background: #333; color: #fff; }</code>
-        <button type="button" class="btn small" onclick="fillCss('.btn { background: #333; color: #fff; }')">Load</button>
-    </div>
-    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #ddd;font-size:12px;color:#888;">
-        Tip: Use your browser's inspector (F12) to find more class names. Add <code>!important</code> if a rule isnt sticking.
-    </div>
-</div>
-
-<div id="panel-easy" style="display:none;margin-top:10px;font-size:13px;background:#f9f9f9;padding:14px;border-radius:4px;border:1px solid #ddd;">
-    <div style="margin-bottom:10px;font-weight:600;">Pick options and hit Generate - no CSS knowledge needed!</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Theme preset</label>
-            <select id="easy-theme" style="width:100%;" onchange="applyThemePreset()">
-                <option value="">Custom</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="warm">Warm</option>
-                <option value="ocean">Ocean</option>
-                <option value="forest">Forest</option>
-            </select>
-        </div>
-        <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Page background</label>
-            <input type="color" id="easy-bg" value="#ffffff" style="width:100%;height:30px;">
-        </div>
-        <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Name color</label>
-            <input type="color" id="easy-name-color" value="#333333" style="width:100%;height:30px;">
-        </div>
-        <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Name font</label>
-            <select id="easy-font" style="width:100%;">
-                <option value="">Default</option>
-                <option value="Georgia, serif">Serif</option>
-                <option value="Courier New, monospace">Monospace</option>
-                <option value="Comic Sans MS, cursive">Fun</option>
-            </select>
-        </div>
-        <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Sidebar background</label>
-            <input type="color" id="easy-sidebar" value="#ffffff" style="width:100%;height:30px;">
-        </div>
-        <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Tab background</label>
-            <input type="color" id="easy-tab-bg" value="#f5f5f5" style="width:100%;height:30px;">
-        </div>
-        <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Banner height</label>
-            <select id="easy-banner-height" style="width:100%;">
-                <option value="260">Short (260px)</option>
-                <option value="320" selected>Medium (320px)</option>
-                <option value="400">Tall (400px)</option>
-                <option value="500">Full (500px)</option>
-            </select>
-        </div>
-        <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">PFP shape</label>
-            <select id="easy-pfp" style="width:100%;">
-                <option value="">Square</option>
-                <option value="50%">Circle</option>
-                <option value="12px">Rounded</option>
-            </select>
-        </div>
-        <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">Post border</label>
-            <input type="color" id="easy-post-border" value="#eeeeee" style="width:100%;height:30px;">
-        </div>
-        <div style="display:flex;align-items:flex-end;">
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer;">
-                <input type="checkbox" id="easy-round-banner" checked>
-                Keep banner gradient overlay
-            </label>
-        </div>
-    </div>
-    <button type="button" class="btn primary" style="margin-top:12px;" onclick="generateEasyCss()">Generate CSS</button>
-</div>
-</div>
-</fieldset>
-<button type="submit" class="btn primary">Save CSS</button>
-</form>
-<script>
 function showPanel(name){
     ['tips','easy'].forEach(function(n){
         var p = document.getElementById('panel-' + n);
@@ -434,55 +495,5 @@ function generateEasyCss(){
     textarea.focus();
 }
 </script>
-<?php endif; ?>
-
-<?php if($tab == 'security'): ?>
-<form action="/backend/users/update_security.php" method="POST" class="form-stacked">
-<input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-<fieldset>
-<legend>Security</legend>
-<div class="clearfix">
-<label>Email Address</label>
-<div class="input">
-<input type="text" class="xlarge" value="<?= $email ?>" disabled>
-</div>
-</div>
-<div class="clearfix">
-<label>Username</label>
-<div class="input">
-<input type="text" class="xlarge" name="username" value="<?= $username ?>">
-</div>
-</div>
-</fieldset>
-
-<fieldset style="margin-top:20px;">
-<legend>Change Password</legend>
-<div class="clearfix">
-<label>Current Password</label>
-<div class="input">
-<input type="password" class="xlarge" name="current_password">
-</div>
-</div>
-<div class="clearfix">
-<label>New Password</label>
-<div class="input">
-<input type="password" class="xlarge" name="new_password">
-</div>
-</div>
-<div class="clearfix">
-<label>Confirm Password</label>
-<div class="input">
-<input type="password" class="xlarge" name="confirm_password">
-</div>
-</div>
-</fieldset>
-<button type="submit" class="btn primary">Update Security</button>
-</div>
-</form>
-<?php endif; ?>
-
-<?php showMessage(); ?>
-
-</div>
 
 <?php require_once "footer.php"; ?>

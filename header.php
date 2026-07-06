@@ -1,10 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
-ob_start(); 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    
-}
+ob_start();
 
 require_once __DIR__ . '/database/config.php';
 
@@ -39,6 +36,7 @@ $page_titles = [
     "index.php"    => "Home",
     "explore.php"  => "Explore",
     "settings.php" => "Settings",
+    "export.php" => "Export Data",
     "search.php"   => "Search",
     "banned.php"   => "Banned",
     "news.php"     => "Blog",
@@ -59,6 +57,7 @@ if (!isset($page_title)) {
 require_once __DIR__ . '/functions/auth.php';
 require_once __DIR__ . '/functions/security.php';
 require_once __DIR__ . '/functions/messages.php';
+require_once __DIR__ . '/functions/icons.php';
 require_once __DIR__ . '/functions/notifications.php';
 require_once __DIR__ . '/functions/users.php';
 
@@ -102,11 +101,11 @@ if(isLoggedIn()){
     
     <meta name="description" content="Join the conversation on <?php echo $SITE_NAME; ?>. Share updates, follow friends, and explore trending topics.">
     <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://birdchirp.org/<?php echo $current_file; ?>">
+    <link rel="canonical" href="https://<?php echo $_SERVER['HTTP_HOST']; ?>/<?php echo $current_file; ?>">
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="<?php echo $SITE_NAME; ?>">
-    <meta property="og:url" content="https://birdchirp.org/<?php echo htmlspecialchars($_SERVER['REQUEST_URI'], ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:url" content="https://<?php echo $_SERVER['HTTP_HOST'] . htmlspecialchars($_SERVER['REQUEST_URI'], ENT_QUOTES, 'UTF-8'); ?>">
     
     <?php 
     if ($current_file === 'view_post.php' && $post !== false && !empty($post)) {
@@ -132,7 +131,7 @@ if(isLoggedIn()){
 
     <meta property="og:title" content="<?php echo $embed_title; ?>">
     <meta property="og:description" content="<?php echo $embed_desc; ?>">
-    <meta property="og:image" content="https://birdchirp.org<?php echo $embed_image; ?>">
+    <meta property="og:image" content="https://<?php echo $_SERVER['HTTP_HOST'] . $embed_image; ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     
@@ -237,6 +236,12 @@ if(isLoggedIn()){
             background: rgba(255, 255, 255, 0.05);
             color: #fff;
         }
+        .post-actions a.btn-like { color: #888; }
+        .post-actions a.btn-like.liked { color: rgb(224, 36, 94); }
+        .post-actions a.btn-like:hover { color: rgb(224, 36, 94); }
+        .post-actions a.btn-retweet { color: #888; }
+        .post-actions a.btn-retweet.retweeted { color: rgb(23, 191, 99); }
+        .post-actions a.btn-retweet:hover { color: rgb(23, 191, 99); }
         .dropdown-menu {
             z-index: 9999;
         }
@@ -297,10 +302,7 @@ if (isset($show_announcement) && $show_announcement === true):
                     ?>
                     <li>
                         <a href="/inbox" class="notification-bell" title="Notifications">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                            </svg>
+                            <?= svg_icon('bell', '', 18, 'vertical-align:middle') ?>
                             <?php if($unread > 0): ?>
                                 <span class="notification-badge"><?= $unread ?></span>
                             <?php endif; ?>
@@ -361,5 +363,38 @@ $(function(){
     $(document).click(function(e) {
         $('.dropdown').removeClass('open');
     });
+    pollNotifications();
+    if (window.inboxPollTimer) clearInterval(window.inboxPollTimer);
+    window.inboxPollTimer = setInterval(pollNotifications, 10000);
 }); 
+
+function pollNotifications() {
+    $.getJSON('/backend/misc/notification_count.php', function(data) {
+        $('.notification-badge').each(function() {
+            var count = data.count;
+            if (count > 0) {
+                $(this).text(count).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+}
+
+$(document).on('click', '.btn-like, .btn-retweet', function(e) {
+    var $btn = $(this);
+    var href = $btn.attr('href');
+    if (!href) return;
+    e.preventDefault();
+    $.getJSON(href, function(data) {
+        if (!data.success) return;
+        var $count = $btn.find('.count');
+        if ($btn.is('.btn-like')) {
+            $btn.toggleClass('liked', data.liked);
+        } else {
+            $btn.toggleClass('retweeted', data.retweeted);
+        }
+        if ($count.length) $count.text(data.count);
+    }).fail(function() { window.location.href = '/'; });
+});
 </script>

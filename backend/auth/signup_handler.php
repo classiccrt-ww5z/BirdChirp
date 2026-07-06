@@ -35,7 +35,7 @@ if (!$is_localhost) {
         $details = json_decode($json, true);
         if ($details && $details['status'] === 'success') {
             if (!empty($details['proxy']) || !empty($details['hosting'])) {
-                setMessage("error", "VPNs are not allowed on BirdChirp!");
+                setMessage("error", "VPNs are not allowed on $SITE_NAME!");
                 header("Location: ../../index.php");
                 exit;
             }
@@ -106,7 +106,7 @@ if ($age < $minAge) {
                     ["name" => "Minimum Required", "value" => "$minAge years", "inline" => true],
                     ["name" => "Reason", "value" => "User has been banned for being underage", "inline" => false]
                 ],
-                "footer" => ["text" => "BirdChirp Auto-Ban"]
+                "footer" => ["text" => "$SITE_NAME Auto-Ban"]
             ]]
         ];
         $dw = curl_init($discord_webhook_url);
@@ -166,14 +166,14 @@ try {
     $stmt->execute([$username, $email, $hash, $userIp, $verification_token, $autoVerify ? 1 : 0, $birthdate]);
 
     if (!$autoVerify) {
-        $host = $_SERVER['HTTP_HOST'] ?? 'birdchirp.org';
+        $host = $_SERVER['HTTP_HOST'];
         $verificationLink = "http://$host/verify.php?token=" . $verification_token;
         $htmlContent = "
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset='utf-8'>
-            <link href='https://birdchirp.org/css/bootstrap.css' rel='stylesheet'>
+            <link href='https://$host/css/bootstrap.css' rel='stylesheet'>
         </head>
         <body style='margin: 0; padding: 0;'>
             <table border='0' cellpadding='0' cellspacing='0' width='100%' style='background-color: #f5f5f5; font-family: \"Helvetica Neue\", Helvetica, Arial, sans-serif; padding: 40px 0;'>
@@ -182,8 +182,8 @@ try {
                         <table border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px;'>
                             <tr>
                                 <td style='padding: 40px; text-align: center;'>
-                                    <img src='http://$host/images/logos/birdchirpold.png' alt='BirdChirp' width='150' style='margin-bottom: 20px;'>
-                                    <h1 style='color: #333333; font-size: 38px; font-weight: bold; line-height: 1; margin: 0 0 20px 0; letter-spacing: -1px;'>Welcome to BirdChirp</h1>
+                                    <img src='http://$host/images/logos/birdchirpold.png' alt='$SITE_NAME' width='150' style='margin-bottom: 20px;'>
+                                    <h1 style='color: #333333; font-size: 38px; font-weight: bold; line-height: 1; margin: 0 0 20px 0; letter-spacing: -1px;'>Welcome to $SITE_NAME</h1>
                                     <p style='color: #777777; font-size: 18px; line-height: 24px; margin: 0 0 30px 0;'>Please verify your account using the button below:</p>
                                     <table border='0' cellpadding='0' cellspacing='0' style='margin: 0 auto;'>
                                         <tr>
@@ -195,7 +195,7 @@ try {
                                 </td>
                             </tr>
                         </table>
-                        <p style='color: #999999; font-size: 12px; margin-top: 20px;'>&copy; 2026 BirdChirp</p>
+                        <p style='color: #999999; font-size: 12px; margin-top: 20px;'>&copy; 2026 $SITE_NAME</p>
                     </td>
                 </tr>
             </table>
@@ -203,7 +203,7 @@ try {
         </html>";
         $url = 'https://send.api.mailtrap.io/api/send';
         $data = [
-            'from' => ['email' => 'verify@birdchirp.org', 'name' => 'BirdChirp'],
+            'from' => ['email' => 'verify@' . $_SERVER['HTTP_HOST'], 'name' => $SITE_NAME],
             'to' => [['email' => $email]],
             'subject' => 'Verify Your Email',
             'html' => $htmlContent, 

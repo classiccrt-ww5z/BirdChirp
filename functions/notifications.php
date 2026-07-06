@@ -1,8 +1,11 @@
 <?php
 require_once __DIR__ . '/../database/config.php';
 
-function createNotification($userId, $type, $fromUserId, $postId = null, $message = null) {
+function createNotification($userId, $type, $fromUserId, $postId = null, $message = null, $relatedText = null) {
     global $pdo;
+    if ($relatedText !== null) {
+        $message = mb_substr($relatedText, 0, 80);
+    }
     $stmt = $pdo->prepare("INSERT INTO notifications (user_id, type, from_user_id, post_id, message) VALUES (?, ?, ?, ?, ?)");
     return $stmt->execute([$userId, $type, $fromUserId, $postId, $message]);
 }
@@ -50,25 +53,35 @@ function deleteNotification($notificationId, $userId) {
 
 function notifyOnLike($postId, $userId) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT user_id FROM posts WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT user_id, content FROM posts WHERE id = ?");
     $stmt->execute([$postId]);
-    $postOwner = $stmt->fetchColumn();
-    if ($postOwner && $postOwner != $userId) {
-        createNotification($postOwner, 'like', $userId, $postId, 'liked your post');
+    $post = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($post && $post['user_id'] != $userId) {
+        createNotification($post['user_id'], 'like', $userId, $postId, 'liked your post', $post['content']);
     }
 }
 
 function notifyOnReply($postId, $userId) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT user_id FROM posts WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT user_id, content FROM posts WHERE id = ?");
     $stmt->execute([$postId]);
-    $postOwner = $stmt->fetchColumn();
-    if ($postOwner && $postOwner != $userId) {
-        createNotification($postOwner, 'reply', $userId, $postId, 'replied to your post');
+    $post = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($post && $post['user_id'] != $userId) {
+        createNotification($post['user_id'], 'reply', $userId, $postId, 'replied to your post', $post['content']);
     }
 }
 
 function notifyOnFollow($followedUserId, $followerId) {
     global $pdo;
     createNotification($followedUserId, 'follow', $followerId, null, 'started following you');
+}
+
+function notifyOnRetweet($postId, $userId) {
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT user_id, content FROM posts WHERE id = ?");
+    $stmt->execute([$postId]);
+    $post = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($post && $post['user_id'] != $userId) {
+        createNotification($post['user_id'], 'retweet', $userId, $postId, 'reposted your post', $post['content']);
+    }
 }

@@ -2,13 +2,15 @@
 
 require_once "../../database/config.php";
 require_once "../../functions/auth.php";
-require_once "../../functions/posts.php"; 
+require_once "../../functions/posts.php";
+require_once "../../functions/users.php"; 
 
 if (!isLoggedIn()) {
     exit;
 }
 
 $uid = $_SESSION['user_id'];
+$csrf = generateCSRF();
 $last_id = isset($_GET['last_id']) ? intval($_GET['last_id']) : 0;
 
 $stmt = $pdo->prepare("SELECT p.*, u.username, u.avatar, 

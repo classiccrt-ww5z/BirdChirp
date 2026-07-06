@@ -15,13 +15,15 @@ if($post_id <= 0){
 $stmt = $pdo->prepare("
     SELECT p.*, u.id AS user_id, u.username, u.display_name, u.avatar, u.is_verified, u.partner, u.admin,
     (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes_count,
-    (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked
+    (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked,
+    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
     FROM posts p 
     JOIN users u ON p.user_id = u.id 
     LEFT JOIN bans b ON p.user_id = b.user_id
     WHERE p.id = ? AND b.user_id IS NULL
     ");
-$stmt->execute([$uid, $post_id]);
+$stmt->execute([$uid, $uid, $post_id]);
 $post = $stmt->fetch();
 
 if (!$post) {
@@ -33,9 +35,10 @@ if (!$post) {
 
 $page_title = !empty($post['display_name']) ? $post['display_name'] : $post['username'];
 $hasLiked = isset($post['has_liked']) && $post['has_liked'] > 0;
+$hasRetweeted = isset($post['has_retweeted']) && $post['has_retweeted'] > 0;
 
 require_once "header.php";
-$likeStyle = $hasLiked ? 'color:rgb(5, 190, 5); font-weight: bold;' : 'color: #657786;';
+
 
 $stmt = $pdo->prepare("
     SELECT r.*, u.id AS user_id, u.username, u.display_name, u.avatar, u.is_verified, u.partner, u.admin 
@@ -79,6 +82,10 @@ $recommended_users = $userStmt->fetchAll();
 }
 .post-content .post-embed { margin-top: 10px; margin-bottom: 10px; }
 .post-actions a { text-decoration: none; font-size: 12px; display: flex; align-items: center; }
+.post-actions a.btn-like { color: #657786; }
+.post-actions a.btn-like.liked { color: rgb(224, 36, 94); }
+.post-actions a.btn-retweet { color: #657786; }
+.post-actions a.btn-retweet.retweeted { color: rgb(23, 191, 99); }
 .post-actions img { width: 16px; height: 16px; margin-right: 8px; }
 </style>
 
@@ -116,15 +123,52 @@ $recommended_users = $userStmt->fetchAll();
                         </video>
                     <?php endif; ?>
 
+                    <?php if (!empty($post['retweet_of_id'])): ?>
+                        <?php
+                        $qStmt = $pdo->prepare("SELECT p.*, u.username, u.display_name, u.avatar, u.partner, u.admin
+                            FROM posts p JOIN users u ON p.user_id = u.id
+                            LEFT JOIN bans b ON p.user_id = b.user_id
+                            WHERE p.id = ? AND b.user_id IS NULL");
+                        $qStmt->execute([$post['retweet_of_id']]);
+                        $quotedPost = $qStmt->fetch(PDO::FETCH_ASSOC);
+                        ?>
+                        <?php if ($quotedPost): ?>
+                        <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-top: 12px; background: #f9f9f9;">
+                            <div style="margin-bottom: 4px;">
+                                <strong><a href="/u/<?= $quotedPost['user_id'] ?>" style="text-decoration:none; color:inherit;"><?= !empty($quotedPost['display_name']) ? htmlspecialchars($quotedPost['display_name']) : htmlspecialchars($quotedPost['username']) ?></a></strong>
+                                <span class="muted" style="font-size:12px;">@<?= htmlspecialchars($quotedPost['username']) ?></span>
+                            </div>
+                            <div style="font-size:13px; word-wrap: break-word;"><?= parsePostContent($quotedPost['content']) ?></div>
+                            <?php if (!empty($quotedPost['image'])): ?>
+                                <img src="/images/posts/<?= htmlspecialchars($quotedPost['image'], ENT_QUOTES, 'UTF-8') ?>" style="max-width:100%; max-height:200px; margin-top:6px; border-radius:4px;">
+                            <?php endif; ?>
+                            <?php if (!empty($quotedPost['video'])): ?>
+                                <video controls style="max-width:100%; max-height:200px; margin-top:6px; border-radius:4px;" preload="metadata">
+                                    <source src="/videos/posts/<?= htmlspecialchars($quotedPost['video'], ENT_QUOTES, 'UTF-8') ?>" type="video/mp4">
+                                </video>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+
                     <div class="post-actions" style="margin-top: 20px; display: flex; gap: 50px; padding-bottom: 5px;">
-                        <a href="#reply-area" style="color:#657786;">
-                            <img src="/images/misc/reply.png" style="opacity:0.6;"> 
+                        <a href="#reply-area" style="color:#657786; font-size:12px; display:flex; align-items:center;">
+                            <?= svg_icon('chat', '', 16, 'vertical-align:middle;margin-right:4px') ?>
                             <span>Reply</span>
                         </a>
 
-                        <a href="/backend/posts/like_post.php?id=<?= $post['id'] ?>&csrf=<?= $csrf ?>" style="<?= $likeStyle ?>">
-                            <img src="/images/misc/likes.png" style="opacity: <?= ($hasLiked ? '1' : '0.6') ?>;"> 
-                            <span><?= intval($post['likes_count']) ?></span>
+                        <a href="/backend/posts/retweet.php?id=<?= $post['id'] ?>&csrf=<?= $csrf ?>" class="btn-retweet<?= $hasRetweeted ? ' retweeted' : '' ?>" data-post-id="<?= $post['id'] ?>">
+                            <?= svg_icon('loop-circular', '', 16, 'vertical-align:middle;margin-right:4px') ?>
+                            <span class="count"><?= intval($post['retweet_count']) ?></span>
+                        </a>
+                        <a href="/?quote=<?= $post['id'] ?>" style="color:#657786;">
+                            <?= svg_icon('double-quote-sans-left', '', 14, 'vertical-align:middle;margin-right:4px') ?>
+                            <span>Quote</span>
+                        </a>
+
+                        <a href="/backend/posts/like_post.php?id=<?= $post['id'] ?>&csrf=<?= $csrf ?>" class="btn-like<?= $hasLiked ? ' liked' : '' ?>" data-post-id="<?= $post['id'] ?>">
+                            <?= svg_icon('heart', 'heart-svg', 16, 'vertical-align:middle;margin-right:4px') ?>
+                            <span class="count"><?= intval($post['likes_count']) ?></span>
                         </a>
                     </div>
                 </div>
@@ -195,7 +239,11 @@ $recommended_users = $userStmt->fetchAll();
                             <div style="float:left; line-height: 1.2;">
                                 <strong><a href="/u/<?=$r_user['id']?>"><?=e(!empty($r_user['display_name']) ? $r_user['display_name'] : $r_user['username'])?></a></strong><br>
                                 <span class="muted" style="font-size:11px;">@<?=e($r_user['username'])?></span><br>
-                                <a href="/backend/users/follow_user.php?id=<?=$r_user['id']?>&csrf=<?= $csrf ?>" class="btn small <?= isLoggedIn() ? 'success' : '' ?>" style="margin-top:4px;">Follow</a>
+                                <?php if (isFollowing($uid, $r_user['id'])): ?>
+                                    <a href="/backend/users/unfollow.php?id=<?=$r_user['id']?>&csrf=<?= $csrf ?>" class="btn small" style="margin-top:4px;">Unfollow</a>
+                                <?php else: ?>
+                                    <a href="/backend/users/follow.php?id=<?=$r_user['id']?>&csrf=<?= $csrf ?>" class="btn small success" style="margin-top:4px;">Follow</a>
+                                <?php endif; ?>
                             </div>
                         </li>
                     <?php endforeach; ?>

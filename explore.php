@@ -1,5 +1,6 @@
 <?php
 require_once "header.php";
+require_once "functions/users.php";
 require_once "functions/posts.php";
 
 $uid = $_SESSION['user_id'] ?? 0;
@@ -11,13 +12,15 @@ if (isset($_GET['ajax_load_more'])) {
         
         $stmt = $pdo->prepare("SELECT p.*, u.username, u.display_name, u.avatar, u.is_verified, u.partner, u.admin,
             (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes_count,
-            (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked
+            (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked,
+            (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+            (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
             FROM posts p 
             JOIN users u ON p.user_id = u.id 
             LEFT JOIN bans b ON p.user_id = b.user_id
             WHERE b.user_id IS NULL AND p.id < ? 
             ORDER BY p.id DESC LIMIT 10");
-        $stmt->execute([$uid, $last_id]);
+        $stmt->execute([$uid, $uid, $last_id]);
         
         $ajax_posts = $stmt->fetchAll();
         if ($ajax_posts) {
@@ -34,13 +37,15 @@ if (isset($_GET['ajax_load_more'])) {
 
 $stmt = $pdo->prepare("SELECT p.*, u.username, u.display_name, u.avatar, u.is_verified, u.partner, u.admin,
     (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes_count,
-    (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked
+    (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = ?) as has_liked,
+    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id) as retweet_count,
+    (SELECT COUNT(*) FROM retweets WHERE post_id = p.id AND user_id = ?) as has_retweeted
     FROM posts p 
     JOIN users u ON p.user_id = u.id 
     LEFT JOIN bans b ON p.user_id = b.user_id
     WHERE b.user_id IS NULL 
     ORDER BY p.id DESC LIMIT 10");
-$stmt->execute([$uid]);
+$stmt->execute([$uid, $uid]);
 $posts = $stmt->fetchAll();
 
 $tagStmt = $pdo->query("SELECT p.content FROM posts p LEFT JOIN bans b ON p.user_id = b.user_id WHERE p.content LIKE '%#%' AND b.user_id IS NULL ORDER BY p.created_at DESC LIMIT 50");
@@ -126,9 +131,11 @@ $recommended_users = $userStmt->fetchAll();
                                 <strong><a href="/user/<?=$r_user['username']?>"><?=e(!empty($r_user['display_name']) ? $r_user['display_name'] : $r_user['username'])?></a></strong><br>
                                 <span class="muted" style="font-size:11px;">@<?=e($r_user['username'])?></span><br>
                                 <?php if(isLoggedIn()): ?>
-                                    <a href="/backend/users/follow_user?id=<?=$r_user['id']?>" class="btn small success" style="margin-top:4px;">Follow</a>
-                                <?php else: ?>
-                                    <a href="/login" class="btn small" style="margin-top:4px;">Follow</a>
+                                    <?php if (isFollowing($uid, $r_user['id'])): ?>
+                                        <a href="/backend/users/unfollow.php?id=<?=$r_user['id']?>&csrf=<?= $csrf ?>" class="btn small" style="margin-top:4px;">Unfollow</a>
+                                    <?php else: ?>
+                                        <a href="/backend/users/follow.php?id=<?=$r_user['id']?>&csrf=<?= $csrf ?>" class="btn small success" style="margin-top:4px;">Follow</a>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </li>

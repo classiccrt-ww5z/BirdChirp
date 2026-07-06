@@ -26,12 +26,14 @@ function verifyCSRF($token)
 }
 function safeRedirect($fallback = '/') {
     $referer = $_SERVER['HTTP_REFERER'] ?? '';
-    $host = $_SERVER['HTTP_HOST'] ?? '';
-    
     if (!empty($referer)) {
-        $parsed = parse_url($referer);
-        $refHost = $parsed['host'] ?? '';
-        if ($refHost === $host) {
+        $refParsed = parse_url($referer);
+        $refHost = $refParsed['host'] ?? '';
+        $refPort = $refParsed['port'] ?? '';
+        $curParsed = parse_url('http://' . ($_SERVER['HTTP_HOST'] ?? ''));
+        $curHost = $curParsed['host'] ?? '';
+        $curPort = $curParsed['port'] ?? '';
+        if ($refHost === $curHost && (!$refPort || !$curPort || $refPort === $curPort)) {
             header("Location: " . $referer);
             exit;
         }

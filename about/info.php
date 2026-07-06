@@ -29,18 +29,18 @@
             <hr class="my-5">
             <section class="p-4 bg-light rounded-3 border">
                 <h3 class="h5 fw-bold mb-3">Link to Us</h3>
-                <p class="small text-muted">Love BirdChirp? Put a button on your site to help spread the word!</p>
+                <p class="small text-muted">Love <?php echo $SITE_NAME; ?>? Put a button on your site to help spread the word!</p>
                 
                 <div class="d-flex align-items-center gap-3 mb-3">
                     <div class="p-2 bg-white border rounded">
-                        <a href="https://birdchirp.org/">
-                            <img src="/birdchirpbutton.png" alt="birdchirp" style="image-rendering: pixelated;">
+                        <a href="//<?php echo $_SERVER['HTTP_HOST']; ?>/">
+                            <img src="/birdchirpbutton.png" alt="<?php echo $SITE_NAME; ?>" style="image-rendering: pixelated;">
                         </a>
                     </div>
 
                 <div class="input-group">
                     <code class="form-control bg-dark text-info p-3" id="buttonCode">
-                        &lt;a href="https://birdchirp.org/"&gt;&lt;img src="https://birdchirp.org/birdchirpbutton.png" alt="birdchirp" /&gt;&lt;/a&gt;
+                        &lt;a href="<?php echo 'https://' . $_SERVER['HTTP_HOST']; ?>/"&gt;&lt;img src="<?php echo 'https://' . $_SERVER['HTTP_HOST']; ?>/birdchirpbutton.png" alt="<?php echo $SITE_NAME; ?>" /&gt;&lt;/a&gt;
                     </code>
                 </div>
                 <button class="btn btn-sm btn-outline-secondary mt-2" onclick="copyCode()">Copy to Clipboard</button>

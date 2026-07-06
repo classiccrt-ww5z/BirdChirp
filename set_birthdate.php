@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_submit'])) {
                             ["name" => "Minimum Required", "value" => "$minAge years", "inline" => true],
                             ["name" => "Reason", "value" => "User has been banned for being underage", "inline" => false]
                         ],
-                        "footer" => ["text" => "BirdChirp Auto-Ban"]
+                        "footer" => ["text" => "$SITE_NAME Auto-Ban"]
                     ]]
                 ];
                 $dw = curl_init($discord_webhook_url);
@@ -83,14 +83,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['ajax_submit'])) {
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Set Birthdate - BirdChirp</title>
+    <title>Set Birthdate - <?php echo $SITE_NAME; ?></title>
 </head>
 <body>
     <div style="text-align: center; margin-top: 50px;">
-        <img src="/images/logos/birdchirpold.png" alt="BirdChirp"><br><br>
+        <img src="/images/logos/birdchirpold.png" alt="<?php echo $SITE_NAME; ?>"><br><br>
         
         <h2>Set Your Birthdate</h2>
-        <p>You must be at least <?= $minAge ?> years old to use BirdChirp.</p>
+        <p>You must be at least <?= $minAge ?> years old to use <?= $SITE_NAME ?>.</p>
         
         <?php if ($error): ?>
             <p style="color: red;"><?= htmlspecialchars($error) ?></p>

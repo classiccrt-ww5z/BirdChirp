@@ -68,6 +68,15 @@ try {
     error_log($e->getMessage());
     die("<h1>Service Unavailable</h1><p>" . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</p>");
 }
+try {
+    $stmt = $pdo->query("SELECT setting_value FROM site_settings WHERE setting_key = 'site_name'");
+    $row = $stmt->fetch(PDO::FETCH_NUM);
+    if ($row) {
+        $SITE_NAME = $row[0];
+    }
+} catch (PDOException $e) {
+    // Keep default
+}
 $userIp = get_user_ip();
 if (strpos($userIp, ',') !== false) {
     $userIp = explode(',', $userIp)[0];

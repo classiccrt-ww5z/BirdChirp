@@ -86,3 +86,23 @@ function updateProfile($id, $bio){
     $stmt = $pdo->prepare("UPDATE users SET bio = ? WHERE id = ?");
     return $stmt->execute([$bio, $id]);
 }
+
+function isFollowing($followerId, $followingId) {
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?");
+    $stmt->execute([$followerId, $followingId]);
+    return (bool)$stmt->fetch();
+}
+
+function followUser($followerId, $followingId) {
+    global $pdo;
+    $stmt = $pdo->prepare("INSERT IGNORE INTO follows (follower_id, following_id) VALUES (?, ?)");
+    $stmt->execute([$followerId, $followingId]);
+    notifyOnFollow($followingId, $followerId);
+}
+
+function unfollowUser($followerId, $followingId) {
+    global $pdo;
+    $stmt = $pdo->prepare("DELETE FROM follows WHERE follower_id = ? AND following_id = ?");
+    $stmt->execute([$followerId, $followingId]);
+}

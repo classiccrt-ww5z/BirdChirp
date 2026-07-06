@@ -45,7 +45,7 @@ $isPopup = isset($_GET['popup']);
 <nav class="navbar navbar-inverse">
   <div class="container-fluid">
     <div class="navbar-header">
-      <a class="navbar-brand" href="index.php">BirdChirp Admin</a>
+      <a class="navbar-brand" href="index.php"><?php echo $SITE_NAME; ?> Admin</a>
     </div>
     <ul class="nav navbar-nav">
     <?php foreach($pages as $file => $info): list($label, $icon) = $info; ?>
